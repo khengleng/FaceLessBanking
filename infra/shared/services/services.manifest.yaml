@@ -3,15 +3,9 @@ version: 1
 naming:
   convention: service-first
   canonicalOwners:
-    aml-monitoring-service:
-      aliases:
-        - aml-monitoring
-    rbac-service:
-      aliases:
-        - rbac-engine
-    regulatory-reporting-service:
-      aliases:
-        - regulatory-reporting
+    - aml-monitoring-service
+    - rbac-service
+    - regulatory-reporting-service
   parallelDomains:
     treasury:
       services:

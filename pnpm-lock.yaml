@@ -297,43 +297,6 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  services/aml-monitoring:
-    dependencies:
-      '@faceless-banking/shared-events':
-        specifier: workspace:*
-        version: link:../../packages/shared-events
-      '@faceless-banking/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
-      '@opentelemetry/api':
-        specifier: ^1.9.0
-        version: 1.9.1
-      fastify:
-        specifier: ^5.6.1
-        version: 5.8.4
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^24.4.0
-        version: 24.12.2
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.42.0
-        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.42.0
-        version: 8.58.1(eslint@8.57.1)(typescript@5.9.3)
-      eslint:
-        specifier: ^8.57.1
-        version: 8.57.1
-      tsx:
-        specifier: ^4.20.5
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-
   services/aml-monitoring-service:
     dependencies:
       '@opentelemetry/api':
@@ -1418,40 +1381,6 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  services/rbac-engine:
-    dependencies:
-      '@faceless-banking/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
-      '@opentelemetry/api':
-        specifier: ^1.9.0
-        version: 1.9.1
-      fastify:
-        specifier: ^5.6.1
-        version: 5.8.4
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^24.4.0
-        version: 24.12.2
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.42.0
-        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.42.0
-        version: 8.58.1(eslint@8.57.1)(typescript@5.9.3)
-      eslint:
-        specifier: ^8.57.1
-        version: 8.57.1
-      tsx:
-        specifier: ^4.20.5
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-
   services/rbac-service:
     dependencies:
       '@faceless-banking/shared-types':
@@ -1500,40 +1429,6 @@ importers:
       prom-client:
         specifier: ^15.1.3
         version: 15.1.3
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^24.4.0
-        version: 24.12.2
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.42.0
-        version: 8.58.1(@typescript-eslint/parser@8.58.1(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.42.0
-        version: 8.58.1(eslint@8.57.1)(typescript@5.9.3)
-      eslint:
-        specifier: ^8.57.1
-        version: 8.57.1
-      tsx:
-        specifier: ^4.20.5
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-
-  services/regulatory-reporting:
-    dependencies:
-      '@faceless-banking/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
-      '@opentelemetry/api':
-        specifier: ^1.9.0
-        version: 1.9.1
-      fastify:
-        specifier: ^5.6.1
-        version: 5.8.4
       zod:
         specifier: ^3.23.8
         version: 3.25.76

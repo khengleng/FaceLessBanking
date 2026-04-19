@@ -11,16 +11,11 @@ It is a low-risk normalization layer: no API intent changes are introduced here.
 
 ## Canonical ownership map
 
-### Canonical + legacy alias pairs
+### Canonical services (aliases removed)
 
-- Canonical: `aml-monitoring-service`
-  Legacy alias: `aml-monitoring`
-
-- Canonical: `rbac-service`
-  Legacy alias: `rbac-engine`
-
-- Canonical: `regulatory-reporting-service`
-  Legacy alias: `regulatory-reporting`
+- `aml-monitoring-service`
+- `rbac-service`
+- `regulatory-reporting-service`
 
 ### Parallel domains kept distinct for now (intentional, do not merge blindly)
 
@@ -38,9 +33,8 @@ It is a low-risk normalization layer: no API intent changes are introduced here.
 
 ## Deployment guidance
 
-- Prefer deploying only canonical owners in new environments.
-- Treat legacy alias services as compatibility surfaces during transition.
-- Route new gateway integrations and automation to canonical services first.
+- Deploy only canonical owners.
+- Route gateway integrations and automation to canonical services.
 
 ## Future consolidation guardrails
 
