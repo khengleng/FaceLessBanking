@@ -13,6 +13,6 @@ ENV NODE_ENV=production
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
 COPY --from=builder /app/services/rbac-service ./services/rbac-service
 COPY --from=builder /app/packages ./packages
-RUN corepack enable && pnpm install --prod --filter @faceless-banking/rbac-service...
+RUN corepack enable && pnpm install --filter @faceless-banking/rbac-service...
 EXPOSE 3000
-CMD ["node", "services/rbac-service/dist/index.js"]
+CMD ["node", "--import", "tsx", "services/rbac-service/src/index.ts"]

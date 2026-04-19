@@ -12,4 +12,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/trade-finance build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/trade-finance", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/trade-finance", "exec", "node", "--import", "tsx", "src/index.ts"]

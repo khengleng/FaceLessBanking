@@ -7,7 +7,11 @@ const PORT = Number(process.env.PORT) || 3000;
 async function start() {
   const kafka = new Kafka({ clientId: 'treasury-operations', brokers: KAFKA_BROKERS });
   const producer = kafka.producer();
-  await producer.connect();
+  try {
+    await producer.connect();
+  } catch (error) {
+    console.warn('Kafka unavailable at startup; continuing in degraded mode', error);
+  }
 
   const { app } = buildApp({
     producer,

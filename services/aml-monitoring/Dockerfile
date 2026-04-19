@@ -12,4 +12,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/aml-monitoring build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/aml-monitoring", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/aml-monitoring", "exec", "node", "--import", "tsx", "src/index.ts"]

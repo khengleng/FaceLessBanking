@@ -8,7 +8,11 @@ const kafka = new Kafka({ clientId: 'daily-close-orchestration', brokers: KAFKA_
 const producer = kafka.producer();
 
 async function start() {
-  await producer.connect();
+  try {
+    await producer.connect();
+  } catch (error) {
+    console.warn('Kafka unavailable at startup; continuing in degraded mode', error);
+  }
   
   const { app } = buildApp({
     kafkaProducer: producer

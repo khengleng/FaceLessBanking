@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/regulatory-reporting build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/regulatory-reporting", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/regulatory-reporting", "exec", "node", "--import", "tsx", "src/index.ts"]

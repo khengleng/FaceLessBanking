@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/rbac-engine build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/rbac-engine", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/rbac-engine", "exec", "node", "--import", "tsx", "src/index.ts"]

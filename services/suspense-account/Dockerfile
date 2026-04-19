@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/suspense-account build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/suspense-account", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/suspense-account", "exec", "node", "--import", "tsx", "src/index.ts"]

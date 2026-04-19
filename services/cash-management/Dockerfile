@@ -12,4 +12,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/cash-management build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/cash-management", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/cash-management", "exec", "node", "--import", "tsx", "src/index.ts"]

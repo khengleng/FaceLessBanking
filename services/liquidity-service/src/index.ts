@@ -14,8 +14,12 @@ async function start() {
   const postgresAdapter = new PostgresLiquidityAdapter();
   const application = new LiquidityApplication(postgresAdapter, app.log);
   
-  const consumer = new LiquidityConsumer(kafka, application, app.log);
-  await consumer.start();
+  try {
+    const consumer = new LiquidityConsumer(kafka, application, app.log);
+    await consumer.start();
+  } catch (error) {
+    app.log.warn({ error }, 'Kafka unavailable at startup; continuing without consumer');
+  }
 
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });

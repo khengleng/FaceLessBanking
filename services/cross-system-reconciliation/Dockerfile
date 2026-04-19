@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/cross-system-reconciliation build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/cross-system-reconciliation", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/cross-system-reconciliation", "exec", "node", "--import", "tsx", "src/index.ts"]

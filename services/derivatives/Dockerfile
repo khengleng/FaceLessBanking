@@ -12,4 +12,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/derivatives build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/derivatives", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/derivatives", "exec", "node", "--import", "tsx", "src/index.ts"]

@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/islamic-banking build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/islamic-banking", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/islamic-banking", "exec", "node", "--import", "tsx", "src/index.ts"]

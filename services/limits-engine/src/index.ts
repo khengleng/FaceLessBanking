@@ -8,15 +8,23 @@ const PORT = Number(process.env.PORT) || 3000;
 async function start() {
   const kafka = new Kafka({ clientId: 'limits-engine', brokers: KAFKA_BROKERS });
   const producer = kafka.producer();
-  await producer.connect();
+  let kafkaReady = false;
+  try {
+    await producer.connect();
+    kafkaReady = true;
+  } catch (error) {
+    console.warn('Kafka unavailable at startup; continuing without consumers', error);
+  }
 
   const { app, application } = buildApp({
     producer,
     logger: true
   });
 
-  const consumer = new LimitsConsumer(kafka, application, app.log);
-  await consumer.start();
+  if (kafkaReady) {
+    const consumer = new LimitsConsumer(kafka, application, app.log);
+    await consumer.start();
+  }
 
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });

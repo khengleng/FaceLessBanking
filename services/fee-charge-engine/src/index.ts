@@ -9,14 +9,22 @@ const kafka = new Kafka({ clientId: 'fee-charge-engine', brokers: KAFKA_BROKERS 
 const producer = kafka.producer();
 
 async function start() {
-  await producer.connect();
+  let kafkaReady = false;
+  try {
+    await producer.connect();
+    kafkaReady = true;
+  } catch (error) {
+    console.warn('Kafka unavailable at startup; continuing without consumers', error);
+  }
   
   const { app, feeApplication, collectionApplication } = buildApp({
     kafkaProducer: producer
   });
 
-  const consumer = new FeeEventConsumer(kafka, feeApplication, collectionApplication, app.log);
-  await consumer.start();
+  if (kafkaReady) {
+    const consumer = new FeeEventConsumer(kafka, feeApplication, collectionApplication, app.log);
+    await consumer.start();
+  }
 
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });

@@ -11,4 +11,4 @@ COPY . .
 RUN pnpm --filter @faceless-banking/capital-engine build
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@faceless-banking/capital-engine", "start"]
+CMD ["pnpm", "--filter", "@faceless-banking/capital-engine", "exec", "node", "--import", "tsx", "src/index.ts"]
