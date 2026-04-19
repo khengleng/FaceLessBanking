@@ -1,0 +1,674 @@
+You are building the FaceLessBanking Admin / Ops Web Portal.
+
+Use these frontend standards consistently across all pages unless explicitly overridden:
+
+Stack:
+- React + TypeScript
+- React Router
+- TanStack Query for data fetching/caching
+- React Hook Form + Zod for forms/validation
+- a single component library/design system consistently across the app
+- reusable API client layer with typed request/response models
+
+UI rules:
+- all pages must use shared layout, table, filter, status badge, modal, and empty/error/loading components
+- destructive actions require confirmation modal
+- all mutations must show pending, success, and error states
+- all list pages must support pagination, filtering, and refresh
+- all detail pages must handle partial/missing data safely
+- no duplicated table/filter implementations unless necessary
+
+Security and role rules:
+- use protected routes
+- use permission guards for page sections and actions
+- hide unauthorized navigation items
+- never expose admin controls without explicit role checks
+
+Data rules:
+- use query hooks for reads
+- use mutation hooks for writes
+- invalidate/refetch appropriate queries after mutations
+- handle backend error envelopes consistently
+
+Testing rules:
+- add tests for route access, loading/error/empty states, successful render, and critical actions
+- do not skip tests for protected routes and approval/rejection flows
+
+Deliverables:
+- production-oriented, modular, reusable code
+- no placeholder-only page shells unless explicitly requested
+
+
+1) Admin Web Portal Foundation
+
+This creates the actual frontend app structure.
+
+A. Plan prompt (Ask mode)
+
+You are implementing the Admin / Ops Web Portal for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/services if present
+- any existing frontend or shared package code
+- shared packages under /packages if present
+
+Goal:
+Design the Admin / Ops Web Portal frontend architecture.
+
+Business intent:
+- provide internal users with a secure web portal for operations, investigations, approvals, treasury visibility, and reporting
+- the first version should be modular and role-aware
+- the UI should be production-oriented, not a demo dashboard
+
+Expected responsibilities:
+- define frontend architecture
+- define routing and page layout
+- define auth/session integration approach
+- define data fetching/state approach
+- define role-based navigation approach
+
+Please produce:
+1. proposed frontend stack
+2. app structure
+3. routing structure
+4. layout/navigation design
+5. auth integration design
+6. API client design
+7. test strategy
+8. future extension points
+
+
+--------------------------------
+
+
+==============================B. Build prompt (Code mode)
+
+
+Implement the Admin / Ops Web Portal in /apps/admin-portal or a clearly justified frontend location consistent with the repo structure.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Follow repo conventions.
+4. Keep components modular and production-oriented.
+5. Add tests where practical and run verification commands before finishing.
+
+Goal:
+Create the initial frontend foundation for the FaceLessBanking Admin / Ops Web Portal.
+
+Requirements:
+- React + TypeScript
+- production-ready project structure
+- routing setup
+- app shell with:
+  - top bar
+  - left navigation
+  - content area
+- basic navigation sections for:
+  - Dashboard
+  - Onboarding
+  - Customers
+  - Accounts
+  - Payments
+  - Loans
+  - Reconciliation
+  - Treasury
+  - Risk & Limits
+  - Profitability
+  - Administration
+- create reusable UI foundation:
+  - layout components
+  - page container
+  - table component placeholder
+  - filter bar placeholder
+  - status badge component
+  - empty state component
+- create API client placeholder layer
+- create auth/session placeholder layer
+- create role-based navigation placeholder
+- include Dockerfile if frontend deployment pattern exists
+- no heavy business logic yet
+
+Deliverable:
+- frontend app scaffold
+- routes
+- layout shell
+- reusable UI foundation
+- summary of files changed
+- TODOs for backend integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+- summarize results
+
+
+=================-------------------2) Authentication + Role-Aware Session
+
+This makes the portal usable by real internal users.
+
+A. Plan prompt
+
+You are implementing authentication and role-aware session handling for the Admin / Ops Web Portal.
+
+Read:
+- AGENTS.md
+- admin portal code
+- auth adapter / Keycloak docs if present
+- RBAC engine docs/services if present
+
+Goal:
+Design frontend authentication and role-aware session handling.
+
+Business intent:
+- internal users must authenticate securely
+- navigation and page access must be role-aware
+- unauthorized users must be blocked from protected pages
+
+Produce:
+1. auth flow design
+2. protected route design
+3. role-based navigation design
+4. session model
+5. test plan
+
+
+==============================B. Build prompt
+
+Implement authentication and role-aware session handling in the Admin / Ops Web Portal.
+
+Goal:
+Secure the portal and support role-based access.
+
+Requirements:
+- add login/session integration placeholder for Keycloak or auth adapter
+- implement protected routes
+- implement role-aware navigation rendering
+- create auth context/provider
+- create permission guard utility
+- add unauthorized page
+- add loading/session bootstrap state
+- do not hardcode insecure bypasses
+
+Roles placeholder:
+- OPS_USER
+- OPS_MANAGER
+- RISK_USER
+- TREASURY_USER
+- ADMIN_USER
+
+Behavior:
+- unauthorized page access must redirect or block safely
+- navigation should hide unauthorized sections
+- session state must be reusable across app
+
+Deliverable:
+- auth provider
+- protected route wrapper
+- role-aware menu logic
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+
+-=================3) Dashboard Home
+
+This is the control tower landing page.
+
+A. Plan prompt
+
+You are implementing the Admin Dashboard Home page.
+
+Read:
+- admin portal code
+- ops dashboard aggregation service docs/API if present
+
+Goal:
+Design the dashboard landing page.
+
+Business intent:
+- give internal users a fast operational snapshot
+- surface key metrics, alerts, and queues
+
+Produce:
+1. layout design
+2. card/widget plan
+3. data fetching strategy
+4. test plan
+
+=======================-------B. Build prompt
+
+
+Implement the Dashboard Home page in the Admin / Ops Web Portal.
+
+Goal:
+Create a production-style dashboard landing page.
+
+Requirements:
+- add dashboard route/page
+- show summary widgets for:
+  - onboarding pending
+  - payments failed
+  - loans in review
+  - open disputes
+  - reconciliation mismatches
+  - liquidity summary placeholder
+- add recent activity section placeholder
+- add alert/attention section placeholder
+- connect to ops dashboard aggregation APIs through frontend API client placeholders
+- include loading, empty, and error states
+- keep UI modular and reusable
+
+Deliverable:
+- dashboard page
+- summary cards
+- data hooks/placeholders
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+
+
+=========================4) Onboarding Review Queue UI
+
+This is one of the highest-value pages.
+
+A. Plan prompt
+
+You are implementing the Onboarding Review Queue UI.
+
+Read:
+- admin portal code
+- workflow-case-management APIs
+- onboarding / ekyc service APIs
+
+Goal:
+Design the onboarding review UI for ops/compliance.
+
+Produce:
+1. page design
+2. table/filter layout
+3. action flow design
+4. test plan
+
+
+================
+B. Build prompt
+
+Implement the Onboarding Review Queue page in the Admin / Ops Web Portal.
+
+Goal:
+Allow internal users to review onboarding cases.
+
+Requirements:
+- add onboarding review route/page
+- list onboarding review cases in a table
+- support filters:
+  - status
+  - entityId / onboarding reference
+  - date range placeholder
+- add case detail panel or detail page
+- support actions:
+  - approve
+  - reject
+  - hold
+  - request review
+- use workflow-case-management APIs through client layer
+- include loading, empty, success, and error states
+- keep action flows safe and confirm destructive actions
+
+Deliverable:
+- onboarding review page
+- case list
+- case detail
+- action controls
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+
+
+====================5) Customer 360 UI
+
+This is where support and ops investigate a customer holistically.
+
+A. Plan prompt
+
+
+You are implementing Customer 360 UI.
+
+Read:
+- customer-service APIs
+- account-service APIs
+- loan APIs
+- profitability APIs if present
+- admin portal code
+
+Goal:
+Design a unified customer profile page.
+
+Produce:
+1. page structure
+2. sections/tabs design
+3. data loading strategy
+4. test plan
+
+
+=================B. Build prompt
+
+Implement Customer 360 UI in the Admin / Ops Web Portal.
+
+Goal:
+Provide a unified customer view.
+
+Requirements:
+- add customer search/list page
+- add customer detail page
+- show sections/tabs for:
+  - profile
+  - accounts
+  - loans
+  - recent payments placeholder
+  - onboarding status
+  - profitability placeholder
+- use customer/account/loan APIs through client layer
+- include loading, empty, and error states
+- keep page modular and easy to extend
+
+Deliverable:
+- customer list/search page
+- customer detail / 360 page
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+
+
+========================6) Accounts Investigation UI
+Build prompt
+
+Implement Accounts Investigation UI in the Admin / Ops Web Portal.
+
+Goal:
+Allow ops users to inspect account details and status.
+
+Requirements:
+- add accounts list page
+- add account detail page
+- show:
+  - account status
+  - customer reference
+  - account type
+  - balance snapshot
+  - activation state
+- support filters:
+  - status
+  - account type
+  - customerId
+- include loading, empty, and error states
+- use account and balance APIs
+
+Deliverable:
+- accounts list and detail pages
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+=========================7) Payments Investigation UI
+
+This one matters a lot for a faceless bank.
+
+Build prompt
+
+
+Implement Payments Investigation UI in the Admin / Ops Web Portal.
+
+Goal:
+Allow internal users to investigate payment lifecycle and failures.
+
+Requirements:
+- add payments list page
+- add payment detail page
+- show:
+  - paymentId
+  - source account
+  - destination account
+  - amount
+  - currency
+  - status
+  - correlationId
+  - lifecycle timeline placeholder
+- support filters:
+  - status
+  - date range
+  - accountId
+  - correlationId
+- integrate with payment APIs and audit/search data where available
+- include loading, empty, and error states
+
+Deliverable:
+- payments list page
+- payment detail page
+- lifecycle/timeline section
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+===================8) Loans Review + Investigation UI
+Build prompt
+
+Implement Loans Review and Investigation UI in the Admin / Ops Web Portal.
+
+Goal:
+Support loan review, approval investigation, and loan account inspection.
+
+Requirements:
+- add loans list page
+- add loan detail page
+- show:
+  - application status
+  - eligibility result
+  - approval workflow state
+  - loan account state
+  - repayment schedule placeholder
+  - delinquency status placeholder
+- support filters:
+  - status
+  - customerId
+  - loanAccountId
+- integrate with loan and workflow APIs
+- include action controls where permitted:
+  - approve
+  - reject
+  - hold
+- include loading, empty, and error states
+
+Deliverable:
+- loans list page
+- loan detail page
+- review controls
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+
+==================  9) Reconciliation UI
+Build prompt
+
+Implement Reconciliation UI in the Admin / Ops Web Portal.
+
+Goal:
+Allow ops users to view and run reconciliation jobs.
+
+Requirements:
+- add reconciliation jobs page
+- add reconciliation job detail page
+- support:
+  - create/run reconciliation job
+  - view job status
+  - view mismatch summary
+  - view mismatch details
+- integrate with reconciliation service APIs
+- include loading, empty, success, and error states
+
+Deliverable:
+- reconciliation jobs page
+- reconciliation detail page
+- mismatch views
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+==============10) Treasury / Liquidity / ALM UI
+Build prompt
+
+Implement Treasury / Liquidity / ALM UI in the Admin / Ops Web Portal.
+
+Goal:
+Provide treasury and risk users with liquidity and ALM visibility.
+
+Requirements:
+- add treasury page
+- show:
+  - liquidity positions
+  - treasury transfers placeholder
+  - ALM summary
+  - maturity buckets
+  - repricing gaps placeholder
+- support filters by currency
+- integrate with liquidity, treasury, and ALM APIs
+- include charts/tables as appropriate
+- include loading, empty, and error states
+
+Deliverable:
+- treasury overview page
+- liquidity widgets
+- ALM summary sections
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+========================
+11) FX / Pricing / Profitability UI
+Build prompt
+
+
+Implement FX / Pricing / Profitability UI in the Admin / Ops Web Portal.
+
+Goal:
+Provide treasury/commercial/finance users with FX, pricing, and profitability visibility.
+
+Requirements:
+- add FX page:
+  - latest FX rates
+  - exposure summary
+  - shock scenario results placeholder
+- add pricing page:
+  - loan pricing results
+  - deposit pricing results
+  - transfer/FX pricing placeholder
+- add profitability page:
+  - customer profitability
+  - product profitability
+  - bank-level P&L summary
+- integrate with FX, pricing, and profitability APIs
+- include loading, empty, and error states
+
+Deliverable:
+- FX page
+- pricing page
+- profitability page
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+=========================12) Administration UI
+
+This handles internal settings and controls.
+
+Build prompt
+
+==============
+
+Implement Administration UI in the Admin / Ops Web Portal.
+
+Goal:
+Provide admin users with configuration and governance controls.
+
+Requirements:
+- add administration pages for:
+  - roles and permissions placeholder
+  - feature flags
+  - system configuration
+  - maker-checker policies
+- integrate with relevant backend APIs where available
+- internal admin-only role guard
+- include loading, empty, and error states
+
+Deliverable:
+- admin settings pages
+- role-guarded access
+- summary of changes
+
+Verification:
+- run lint
+- run typecheck
+
+
+=====================13) Global UX Hardening Pass
+
+Do this after the core pages exist.
+
+Build prompt
+
+Review and harden the Admin / Ops Web Portal UX across all implemented pages.
+
+Goals:
+- consistency
+- readability
+- safe operations
+- production feel
+
+Requirements:
+- unify tables, filters, status badges, empty states, error states, and loading states
+- ensure dangerous actions have confirmation flows
+- improve layout consistency
+- improve accessibility basics
+- do not redesign the app radically
+- keep changes incremental and safe
+
+Deliverable:
+- UX consistency pass
+- summary of improvements
+
+Verification:
+- run lint
+- run typecheck
+- run tests if present
+
+
+==================

@@ -1,0 +1,8 @@
+# Local port map (starter baseline)
+api-gateway: 3000
+customer-service: 3001
+account-service: 3002
+loan-orchestration: 3003
+payment-orchestration: 3004
+ekyc-orchestration: 3005
+support-crm-service: 3006

@@ -1,0 +1,424 @@
+0) Global stabilization prompt
+
+Paste this once at the top of the session.
+
+
+You are stabilizing the FaceLessBanking monorepo.
+
+Primary objective:
+Make the repo coherent, green, and deployable without changing business intent.
+
+Rules:
+- Read AGENTS.md and existing repo conventions first.
+- Do not redesign architecture unless necessary to resolve inconsistency.
+- Prefer the smallest safe change.
+- Keep service boundaries intact.
+- Preserve existing API intent and event intent.
+- Fix one class of problems at a time.
+- When adding missing files, follow existing patterns from the healthiest services.
+- For missing dependencies, prefer workspace-consistent versions and existing package conventions.
+- For service fixes, do not introduce shortcuts that bypass tests, typing, or linting.
+- Keep controllers thin and logic in application/domain layers.
+- Keep all changes production-oriented, not demo-oriented.
+
+Verification rule:
+After each task, run only the narrowest relevant verification first, then broader workspace verification when asked.
+
+Deliverable format for every task:
+1. What you changed
+2. Why it was failing
+3. Files changed
+4. Remaining risks/TODOs
+5. Verification results
+
+==========
+1) Reconciliation service triage
+Ask
+
+
+Analyze /services/reconciliation-service and identify every blocker causing:
+- lint failure
+- typecheck failure
+- test failure
+
+Current known symptoms:
+- lint: 16 errors
+- typecheck: TS errors plus missing deps (zod, prom-client, vitest, shared-types resolution)
+- tests: failing due missing vitest package in that service context
+
+Tasks:
+1. Inspect package.json, tsconfig, import graph, test config, and source structure.
+2. Classify failures into:
+   - dependency issues
+   - path / workspace resolution issues
+   - lint rule violations
+   - typing defects
+   - test setup defects
+3. Produce a fix plan in the safest order.
+
+Do not change code yet.
+
+=========Code
+
+Fix /services/reconciliation-service so it passes lint, typecheck, and tests.
+
+Scope:
+- dependency declarations
+- tsconfig / path resolution
+- lint issues
+- typing defects
+- vitest/test setup
+
+Constraints:
+- do not change business intent
+- do not disable lint/type rules unless absolutely necessary and justified
+- prefer existing workspace patterns from healthy services
+- if shared-types resolution is wrong, fix it consistently with workspace conventions
+
+Required verification:
+- run reconciliation-service lint
+- run reconciliation-service typecheck
+- run reconciliation-service tests
+
+Deliver:
+- concise root cause summary
+- files changed
+- verification output summary
+
+
+=================2) Reconciliation service dependency normalization
+Ask
+
+Compare /services/reconciliation-service package.json and tsconfig setup against 2-3 healthy services in the repo.
+
+Goal:
+Find differences in:
+- dependency declarations
+- devDependencies
+- workspace package references
+- TypeScript config
+- test config
+- lint scripts
+
+Produce:
+- exact mismatches
+- exact dependency and config changes recommended
+
+Do not write code yet.
+
+
+
+===============Code
+
+
+Normalize /services/reconciliation-service dependencies and config to match healthy workspace service patterns.
+
+Requirements:
+- add missing dependencies only if actually required
+- fix workspace references for shared-types and any other shared packages
+- align tsconfig, test config, and scripts with healthy services
+- avoid unnecessary package additions
+
+Verification:
+- run reconciliation-service install resolution if needed
+- run lint
+- run typecheck
+- run tests
+
+
+
+===============3) Workspace green verification
+Code
+
+
+Now that reconciliation-service is fixed, run workspace-level verification and fix only issues that are directly preventing:
+- pnpm lint
+- pnpm typecheck
+- pnpm test
+
+Constraints:
+- do not start feature work
+- only remove blockers to green workspace verification
+- if a failure appears outside reconciliation-service, fix narrowly and consistently
+
+Deliver:
+- remaining failing packages if any
+- fixes applied
+- final workspace verification summary
+
+
+===============4) Missing Dockerfiles completion pass
+Ask
+
+Audit the monorepo and identify all services missing Dockerfile.
+
+Goal:
+Create a completion plan for missing Dockerfiles by grouping services by runtime pattern, for example:
+- Node HTTP service
+- worker / event consumer
+- frontend app
+- special-case service
+
+For each missing service, specify:
+- base pattern to use
+- build command
+- runtime command
+- port assumptions
+- env assumptions
+
+Do not write code yet.
+
+
+==================Code
+
+Add Dockerfiles to all services currently missing them.
+
+Requirements:
+- follow existing healthy Dockerfile patterns from the repo
+- group by service type and reuse the same structure where possible
+- use production-oriented multi-stage builds where consistent with repo standards
+- do not hardcode secrets
+- expose the correct runtime command and port pattern
+- include only minimal runtime dependencies
+
+Verification:
+- for each new Dockerfile, ensure syntax is valid and build assumptions are consistent
+- summarize all services updated and any special cases
+
+
+===============5) Missing src/events integration completion pass
+Ask
+
+
+Audit all services and identify the 9 services missing src/events integration.
+
+For each service, determine:
+- whether it should publish events
+- whether it should consume events
+- what event adapter structure should exist
+- which existing service provides the best reference pattern
+
+Produce a service-by-service plan.
+Do not write code yet.
+
+
+================Code
+
+
+Add missing src/events integration layers to the identified services.
+
+Requirements:
+- follow existing event adapter patterns from healthy services
+- do not invent new event contracts unless required by existing service intent
+- add publisher and/or consumer scaffolding as appropriate
+- keep event logic isolated from controllers
+- preserve current business behavior
+
+Verification:
+- confirm each updated service now has a consistent src/events layer
+- run lint and typecheck for affected services
+- summarize what events are published/consumed per service
+
+
+=================6) .env.example baseline pass
+Ask
+
+Audit all services and produce a standardized environment variable matrix.
+
+Goal:
+Identify:
+- common env vars shared across services
+- service-specific required env vars
+- missing .env.example files
+- inconsistent naming patterns
+
+Output:
+- proposed standard naming
+- per-service env file plan
+Do not write code yet.
+
+
+============Code
+
+
+Create or complete .env.example files across the monorepo.
+
+Requirements:
+- create a root env reference if helpful
+- create per-service .env.example where needed
+- include only non-secret placeholder values
+- standardize variable names where possible without breaking existing code
+- document required vs optional variables clearly in comments if repo style allows
+
+Verification:
+- summarize env files added/updated
+- identify any services still needing manual secret injection at runtime
+
+
+===========7) Migration baseline pass
+Ask
+
+
+Audit the repo for database migration strategy.
+
+Goal:
+Identify:
+- which services use PostgreSQL
+- whether they have schema definitions but no migration folders
+- what migration tooling pattern would best fit the existing repo
+
+Produce:
+- service-by-service migration baseline plan
+- recommended minimal folder structure
+Do not write code yet.
+
+
+===========Code
+
+Add migration baseline structure to database-backed services.
+
+Requirements:
+- do not generate speculative business migrations beyond clearly inferable current models
+- create consistent migration folders and starter baseline files/placeholders
+- align naming and tooling with existing repo conventions if any
+- if no migration tool is established, add minimal, explicit baseline structure without overcommitting to a framework
+
+Verification:
+- summarize services updated
+- note any services that still require manual schema finalization
+
+
+==============8) infra/ bootstrap pass
+Ask
+
+
+Design the initial infra/ layout for three deployment profiles:
+- local development
+- Railway test/staging
+- future cloud production
+
+Based on current repo state, propose:
+- folder structure
+- what files belong in each profile
+- what should be placeholders vs real configs now
+
+Do not write code yet.
+
+
+===============Code
+
+Bootstrap the infra/ directory for deployability.
+
+Requirements:
+- create clear structure for:
+  - local
+  - railway
+  - cloud placeholder
+- add minimal, coherent starter artifacts such as:
+  - docker compose or equivalent local placeholders
+  - Railway deployment notes/config placeholders where repo-appropriate
+  - production cloud placeholders without overcommitting to a provider
+- do not add fake secrets
+- keep everything portable
+
+Verification:
+- summarize infra structure created
+- explain how each profile is intended to be used
+
+
+=================9) Service naming / overlap cleanup
+Ask
+
+Audit the monorepo for duplicate or overlapping service naming patterns, especially engine vs service variants and parallel naming drift.
+
+Goal:
+Find places where naming is likely to cause:
+- ownership confusion
+- deployment confusion
+- duplicate logic drift
+- unclear API responsibility
+
+Produce:
+- list of naming conflicts
+- recommended canonical names
+- low-risk rename/consolidation plan
+Do not write code yet.
+
+=================Code
+
+
+Perform a low-risk naming and overlap cleanup pass.
+
+Requirements:
+- prefer aliasing, docs, and internal normalization over invasive refactors where possible
+- rename only when the benefit clearly outweighs the risk
+- update references consistently
+- do not merge distinct business domains accidentally
+- improve clarity for deployment and ownership
+
+Verification:
+- summarize naming changes
+- list services kept as-is and why
+- run lint/typecheck for affected packages
+
+
+==============10) Service runbooks / operational docs pass
+Ask
+
+Audit current documentation and identify missing service-level operational docs.
+
+Goal:
+For each important service, define a minimal runbook format covering:
+- purpose
+- dependencies
+- required env vars
+- ports
+- health endpoint
+- events published/consumed
+- startup notes
+- common failure modes
+
+Produce:
+- runbook template
+- service documentation completion plan
+Do not write code yet.
+
+=====================Code
+
+Add minimal service-level runbooks / operational docs across the monorepo.
+
+Requirements:
+- use a consistent template
+- prioritize business-critical services first
+- include operationally useful details only
+- do not duplicate large architecture docs unnecessarily; link or reference shared docs where appropriate
+
+Verification:
+- summarize docs added
+- identify any critical services still lacking complete runbooks
+
+
+=============11) Final coherence pass
+Code
+
+Perform a final coherence pass across the monorepo after stabilization work.
+
+Check for:
+- consistent service folder structure
+- consistent Dockerfile presence
+- consistent env example coverage
+- consistent events layer presence where expected
+- green workspace verification
+- obvious documentation gaps
+
+Do not introduce new features.
+Only fix inconsistencies and report remaining risk areas.
+
+Verification:
+- run pnpm lint
+- run pnpm typecheck
+- run pnpm test
+- summarize final state and remaining gaps
+
+
+=================

@@ -1,0 +1,5 @@
+# Placeholder Prometheus config.
+# Add scrape targets when services expose metrics endpoints.
+global:
+  scrape_interval: 15s
+scrape_configs: []

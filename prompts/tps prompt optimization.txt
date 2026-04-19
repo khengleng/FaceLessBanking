@@ -1,0 +1,458 @@
+You are implementing a high-TPS Balance Service for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- any existing docs/services/balance-service.md if present
+- shared packages under /packages if present
+
+Goal:
+Design a Redis-first Balance Service optimized for very high read TPS.
+
+Business intent:
+- balance read is a hot path and must be much faster than loan application or onboarding
+- balance reads should not depend on slow synchronous core-banking calls
+- use cache-first design
+- use a read projection model
+- keep a fallback path, but do not put heavy systems in the hot path by default
+
+Expected API surface:
+- GET /health
+- GET /balances/:accountId
+- POST /balances/events/apply   (internal only, for projection updates)
+- POST /balances/cache/warm     (internal/admin only, optional)
+
+Design requirements:
+- Node.js + TypeScript
+- Fastify
+- Redis as first lookup
+- PostgreSQL read model or projection store as fallback
+- no direct Fineract dependency yet
+- must support eventual consistency
+- must include correlationId support
+- must include idempotent event application for projection updates
+- must expose standardized API responses
+- must include OpenTelemetry hooks
+- must be horizontally scalable
+
+Please produce:
+1. proposed folder structure
+2. API contract summary
+3. domain model summary
+4. Redis key strategy
+5. projection update strategy
+6. failure-handling strategy
+7. test plan
+8. list of files to create or modify
+
+Do not write code yet.
+Keep the design practical and aligned to the repo conventions.
+
+
+
+
+
+-----------
+
+
+Implement the initial Redis-first Balance Service in /services/balance-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Follow repo conventions exactly.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for Redis and PostgreSQL.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create a high-TPS Balance Service optimized for read-heavy traffic.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - GET /balances/:accountId
+  - POST /balances/events/apply
+- use Redis as the first read source
+- use PostgreSQL as fallback read projection source
+- if Redis miss and PostgreSQL hit:
+  - return the balance
+  - repopulate Redis
+- if both miss:
+  - return standardized not-found response
+- do not integrate Fineract yet
+- do not put any heavy synchronous dependency in the read path
+
+Domain model:
+- BalanceSnapshot
+  - accountId
+  - availableBalance
+  - ledgerBalance
+  - currency
+  - version
+  - updatedAt
+- BalanceProjectionEvent
+  - eventId
+  - accountId
+  - deltaAmount
+  - resultingAvailableBalance optional
+  - resultingLedgerBalance optional
+  - currency
+  - timestamp
+  - correlationId
+
+Behavior rules:
+- GET /balances/:accountId must:
+  - validate accountId
+  - include correlationId in logs/context
+  - read Redis first
+  - fall back to PostgreSQL projection table
+  - repopulate Redis on successful fallback
+- POST /balances/events/apply must:
+  - be internal-only placeholder endpoint
+  - validate payload
+  - apply projection update idempotently based on eventId
+  - update PostgreSQL projection
+  - update Redis cache
+- projection update must be last-write-safe using version or event ordering placeholder
+- expose standardized error responses
+- add OpenTelemetry bootstrap
+- add Dockerfile
+- add package.json scripts for dev, build, lint, test, typecheck
+
+Adapter requirements:
+- Redis adapter with:
+  - getBalanceSnapshot(accountId)
+  - setBalanceSnapshot(snapshot, ttl)
+- PostgreSQL adapter with:
+  - getBalanceSnapshot(accountId)
+  - upsertBalanceProjection(snapshot or event application result)
+  - hasProcessedEvent(eventId)
+  - markEventProcessed(eventId)
+- no direct external banking system calls
+
+Caching requirements:
+- define a clear Redis key pattern, e.g. balance:{accountId}
+- include configurable TTL from env/config
+- implement cache repopulation on fallback success
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry instrumentation hooks
+- metrics placeholders for cache hit, cache miss, projection update
+
+Tests required:
+- health endpoint
+- GET balance returns from Redis on hit
+- GET balance falls back to PostgreSQL on Redis miss
+- GET balance repopulates Redis after PostgreSQL fallback
+- GET balance returns not found when both sources miss
+- POST apply event updates projection and cache
+- duplicate eventId does not apply projection twice
+- invalid payload returns validation error
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs for future Fineract/event integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+
+-------You are implementing an async Payment Service for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- any existing docs/services/payment-orchestration.md if present
+- shared packages under /packages if present
+
+Goal:
+Design a Kafka-first Payment Service optimized for high write TPS using an async processing model.
+
+Business intent:
+- payment initiation is a hot path
+- request acceptance must be fast
+- heavy downstream work must be asynchronous
+- status transitions must be auditable
+- the service must be safe for high-throughput initiation traffic
+
+Expected API surface:
+- GET /health
+- POST /payments/internal-transfer
+- GET /payments/:paymentId
+- POST /payments/events/status-update   (internal only, optional)
+- optional POST /payments/beneficiaries if already part of the repo shape
+
+Design requirements:
+- Node.js + TypeScript
+- Fastify
+- PostgreSQL for payment request persistence
+- Redis for idempotency
+- Kafka for event publishing
+- no real Fineract integration yet
+- return ACCEPTED/PENDING quickly on initiation
+- support eventual status progression
+- standardized API responses
+- correlationId support
+- audit-ready status model
+- OpenTelemetry hooks
+- horizontally scalable
+
+Please produce:
+1. proposed folder structure
+2. API contract summary
+3. payment state model
+4. idempotency approach
+5. Kafka event strategy
+6. async status transition strategy
+7. failure-handling strategy
+8. test plan
+9. list of files to create or modify
+
+Do not write code yet.
+Keep the design practical and aligned to the repo conventions.
+
+-------------------------------
+
+2) Async Payment Service (Kafka-first)
+A. Plan prompt for Codex (Ask mode)
+
+---------------------
+You are implementing an async Payment Service for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- any existing docs/services/payment-orchestration.md if present
+- shared packages under /packages if present
+
+Goal:
+Design a Kafka-first Payment Service optimized for high write TPS using an async processing model.
+
+Business intent:
+- payment initiation is a hot path
+- request acceptance must be fast
+- heavy downstream work must be asynchronous
+- status transitions must be auditable
+- the service must be safe for high-throughput initiation traffic
+
+Expected API surface:
+- GET /health
+- POST /payments/internal-transfer
+- GET /payments/:paymentId
+- POST /payments/events/status-update   (internal only, optional)
+- optional POST /payments/beneficiaries if already part of the repo shape
+
+Design requirements:
+- Node.js + TypeScript
+- Fastify
+- PostgreSQL for payment request persistence
+- Redis for idempotency
+- Kafka for event publishing
+- no real Fineract integration yet
+- return ACCEPTED/PENDING quickly on initiation
+- support eventual status progression
+- standardized API responses
+- correlationId support
+- audit-ready status model
+- OpenTelemetry hooks
+- horizontally scalable
+
+Please produce:
+1. proposed folder structure
+2. API contract summary
+3. payment state model
+4. idempotency approach
+5. Kafka event strategy
+6. async status transition strategy
+7. failure-handling strategy
+8. test plan
+9. list of files to create or modify
+
+Do not write code yet.
+Keep the design practical and aligned to the repo conventions.
+
+
+---------------------
+
+B. Build prompt for Codex (Code mode)
+
+Implement the initial Kafka-first async Payment Service in /services/payment-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Follow repo conventions exactly.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL, Redis, and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create an async Payment Service optimized for high write TPS using a Kafka-first event model.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /payments/internal-transfer
+  - GET /payments/:paymentId
+- do not integrate Fineract yet
+- do not perform heavy synchronous downstream processing in the initiation endpoint
+- the initiation endpoint should validate, persist, publish event, and return quickly
+
+Domain model:
+- Payment
+  - paymentId
+  - idempotencyKey
+  - sourceAccountId
+  - destinationAccountId
+  - amount
+  - currency
+  - channel
+  - status
+  - correlationId
+  - createdAt
+  - updatedAt
+- PaymentStatus values:
+  - ACCEPTED
+  - PENDING
+  - PROCESSING
+  - COMPLETED
+  - FAILED
+  - REJECTED
+
+API behavior:
+- POST /payments/internal-transfer must:
+  - validate payload
+  - require/use idempotency key
+  - create audit-friendly payment record in PostgreSQL
+  - store or check idempotency state in Redis
+  - publish canonical payment.initiated.v1 event to Kafka
+  - return quickly with:
+    - paymentId
+    - status = ACCEPTED or PENDING
+    - correlationId
+- GET /payments/:paymentId must:
+  - return current persisted payment state
+  - use standardized API response shape
+
+Adapter requirements:
+- PostgreSQL adapter with:
+  - createPayment(...)
+  - getPaymentById(...)
+  - updatePaymentStatus(...)
+  - findPaymentByIdempotencyKey(...)
+- Redis adapter with:
+  - getIdempotencyRecord(...)
+  - setIdempotencyRecord(...)
+- Kafka adapter with:
+  - publishPaymentInitiated(eventEnvelope)
+
+Event requirements:
+- use canonical event envelope if shared-events package exists
+- emit payment.initiated.v1
+- include:
+  - eventId
+  - correlationId
+  - causationId optional
+  - producer
+  - timestamp
+  - paymentId
+  - sourceAccountId
+  - destinationAccountId
+  - amount
+  - currency
+  - channel
+- keep publisher implementation clean and isolated
+
+Status model requirements:
+- creation path writes ACCEPTED or PENDING
+- downstream processing is not implemented yet
+- create clear placeholders and extension points for:
+  - status updates from async processor
+  - future Fineract posting
+  - future ledger anchoring
+  - future notification publishing
+
+Performance requirements:
+- no synchronous external provider or core-banking call in POST /payments/internal-transfer
+- endpoint should be optimized for fast accept-and-publish behavior
+- design for horizontal scaling
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry bootstrap
+- metrics placeholders for:
+  - payment accepted count
+  - idempotency hit count
+  - Kafka publish success/failure
+
+Tests required:
+- health endpoint
+- internal transfer happy path
+- invalid payload
+- duplicate idempotency key returns prior or safe response
+- payment record persisted
+- payment.initiated.v1 event published
+- GET payment by id returns persisted state
+- Kafka publish failure path is handled safely and clearly
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs for future Fineract/ledger integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+-------------------------------------------
+
+What to do right after these two
+
+Once Codex finishes these, the next smart tasks are:
+
+wire shared event envelopes and schemas
+add internal async status-update consumer/processor placeholder for payments
+add projection updater so payment events can refresh balance read models
+connect notifications to payment status changes

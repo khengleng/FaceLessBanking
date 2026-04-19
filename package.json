@@ -1,0 +1,24 @@
+{
+  "name": "faceless-banking",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.27.0",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.2",
+    "tsx": "^4.20.5"
+  }
+}

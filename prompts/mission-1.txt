@@ -1,0 +1,1450 @@
+A. Plan prompt for Codex (Ask mode)
+
+You are implementing the async payment processor for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/payment-orchestration.md if present
+- code under /services/payment-orchestration
+- shared packages under /packages if present
+
+Goal:
+Design the first async payment processor consumer that reacts to payment.initiated.v1 events and updates payment status safely.
+
+Business intent:
+- payment initiation is fast and async
+- this processor handles the next stage after acceptance
+- it must be idempotent
+- it must be audit-friendly
+- it must not integrate with Fineract yet
+- it should prepare clean extension points for later Fineract posting, fraud checks, ledger anchoring, and notifications
+
+Expected responsibilities:
+- consume payment.initiated.v1
+- validate event envelope
+- check if payment has already been processed for this stage
+- transition payment from ACCEPTED/PENDING to PROCESSING
+- simulate or placeholder-process payment
+- transition to COMPLETED or FAILED depending on placeholder rules
+- emit payment.status.updated.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. payment state transition design
+3. idempotency strategy for event consumption
+4. Kafka consumer strategy
+5. failure handling and retry strategy
+6. test plan
+7. extension points for future integrations
+
+Do not write code yet.
+Keep the design practical and aligned to current repo conventions.
+
+---------------------------------------------
+
+B. Build prompt for Codex (Code mode)
+
+Implement the first async payment processor consumer inside /services/payment-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing payment service code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create an async Kafka consumer that processes payment.initiated.v1 events and updates payment state safely.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume payment.initiated.v1
+- validate event envelope
+- lookup payment by paymentId
+- ensure idempotent processing for this stage using processed-event tracking or equivalent
+- transition payment state:
+  - ACCEPTED/PENDING -> PROCESSING
+  - then PROCESSING -> COMPLETED or FAILED using placeholder logic
+- emit payment.status.updated.v1 when status changes
+- persist all state transitions in PostgreSQL
+- no Fineract integration yet
+- no external payment rail integration yet
+- no ledger integration yet
+- create clear extension points for:
+  - future fraud check call
+  - future Fineract posting
+  - future ledger anchor request
+  - future notification trigger
+
+Domain/state requirements:
+- supported statuses:
+  - ACCEPTED
+  - PENDING
+  - PROCESSING
+  - COMPLETED
+  - FAILED
+  - REJECTED
+- only valid transitions should be allowed
+- ignore or reject invalid transition attempts safely
+- record correlationId and eventId for traceability
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getPaymentById(paymentId)
+  - updatePaymentStatus(paymentId, newStatus, metadata)
+  - hasProcessedConsumerEvent(eventId, stage)
+  - markConsumerEventProcessed(eventId, stage)
+- Kafka adapter additions:
+  - consume payment.initiated.v1
+  - publish payment.status.updated.v1
+
+Placeholder business rule:
+- for now, successful processing should mark payment COMPLETED unless a simple placeholder validation fails
+- placeholder validation may fail if:
+  - amount <= 0
+  - sourceAccountId equals destinationAccountId
+- keep this logic isolated so it can be replaced later
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - payments processing started
+  - payments completed
+  - payments failed
+  - duplicate consumer events skipped
+
+Tests required:
+- consume payment.initiated.v1 happy path
+- duplicate event does not process twice
+- missing paymentId is handled safely
+- invalid payload/event envelope is rejected safely
+- processing transitions to COMPLETED on success
+- processing transitions to FAILED on placeholder failure
+- payment.status.updated.v1 is emitted
+- invalid state transition is prevented
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- assumptions/TODOs for future integration points
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+-----------------------------
+
+4) Balance Projection Updater from Payment Events
+
+This is what keeps your high-TPS balance reads fresh without hammering the core system.
+
+A. Plan prompt for Codex (Ask mode)
+
+
+You are implementing the balance projection updater for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/balance-service.md if present
+- code under /services/balance-service
+- code under /services/payment-orchestration if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first balance projection updater that listens to payment status events and updates the balance read model.
+
+Business intent:
+- balance reads must be very fast
+- balance projections should be event-driven
+- balance projections must be idempotent
+- balance projections must update both PostgreSQL projection store and Redis cache
+- do not integrate with Fineract yet
+
+Expected responsibilities:
+- consume payment.status.updated.v1
+- react only to statuses that affect balances
+- apply projection updates safely
+- maintain projection versioning or ordering placeholders
+- update Redis cache after projection changes
+
+Please produce:
+1. proposed folder/files to create or update
+2. event-to-balance update rules
+3. projection/idempotency strategy
+4. Redis refresh strategy
+5. failure handling strategy
+6. test plan
+7. future extension points for deposits, withdrawals, transfers, and core-banking events
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+-------------------
+
+B. Build prompt for Codex (Code mode)
+
+---------------------
+
+Implement the first balance projection updater in /services/balance-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing balance service code.
+6. Review payment event contracts if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL, Redis, and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create an event-driven balance projection updater that consumes payment.status.updated.v1 and updates the balance read model.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume payment.status.updated.v1
+- validate event envelope
+- only apply balance changes for statuses that should affect balances
+- for initial implementation:
+  - apply projection updates only when payment status becomes COMPLETED
+  - do not apply on ACCEPTED, PENDING, or PROCESSING
+  - ignore FAILED and REJECTED for balance mutation
+- update PostgreSQL balance projection store
+- update Redis cache after successful projection update
+- ensure idempotent event consumption using processed-event tracking
+- do not integrate Fineract yet
+
+Domain model requirements:
+- use or extend BalanceSnapshot:
+  - accountId
+  - availableBalance
+  - ledgerBalance
+  - currency
+  - version
+  - updatedAt
+- support projection updates for:
+  - sourceAccountId balance decrease
+  - destinationAccountId balance increase
+- keep logic isolated so future event types can be added later
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getBalanceSnapshot(accountId)
+  - upsertBalanceProjection(snapshot)
+  - hasProcessedProjectionEvent(eventId)
+  - markProjectionEventProcessed(eventId)
+- Redis adapter additions:
+  - getBalanceSnapshot(accountId)
+  - setBalanceSnapshot(snapshot, ttl)
+- Kafka adapter additions:
+  - consume payment.status.updated.v1
+
+Projection rules:
+- when status = COMPLETED:
+  - decrease source account available/ledger balance by amount
+  - increase destination account available/ledger balance by amount
+- if a balance snapshot does not exist:
+  - initialize a placeholder snapshot using zero baseline and apply delta
+  - clearly mark this as an interim approach with TODO for core-banking synchronization
+- maintain version increment or last-event metadata placeholder
+- correlationId and eventId must be preserved for traceability
+
+Safety rules:
+- duplicate eventId must not apply twice
+- malformed payload must be rejected safely
+- currency mismatch handling should fail safely for now
+- sourceAccountId == destinationAccountId should not double-apply
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - projection updates applied
+  - duplicate projection events skipped
+  - Redis cache refresh success/failure
+
+Tests required:
+- consume payment.status.updated.v1 with COMPLETED status updates both source and destination balances
+- duplicate event does not apply twice
+- ACCEPTED/PENDING/PROCESSING events do not mutate balances
+- FAILED/REJECTED events do not mutate balances
+- Redis cache is updated after projection success
+- malformed event is handled safely
+- same source and destination account is handled safely
+- currency mismatch fails safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future Fineract balance synchronization and additional event types
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+-----------------------------------
+Absolutely. Here are the next two exact Codex prompts:
+
+Notification Trigger from Payment Status
+Audit Enrichment for Payment Lifecycle
+
+These keep your hot payment path clean while making the platform feel like a real bank.
+
+
+----------------------5) Notification Trigger from Payment Status
+
+This listens to payment status changes and creates async notification requests.
+
+---------------------------------------
+A. Plan prompt for Codex (Ask mode)
+
+---------------------------
+
+You are implementing notification triggering from payment lifecycle events for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/notification-service.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services/notification-service
+- code under /services/payment-orchestration if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first async notification trigger that reacts to payment.status.updated.v1 and creates notification requests.
+
+Business intent:
+- payment initiation and processing must stay decoupled from notification delivery
+- notifications must be async
+- only selected payment statuses should trigger customer notifications
+- notification generation must be idempotent
+- the service should prepare clean extension points for SMS, email, and push providers
+
+Expected responsibilities:
+- consume payment.status.updated.v1
+- map relevant statuses to notification intents
+- create notification request records
+- publish notification.requested.v1
+- avoid duplicate notifications for the same payment/status combination
+
+Please produce:
+1. proposed folder/files to create or update
+2. event-to-notification rules
+3. idempotency strategy
+4. payload design for notification.requested.v1
+5. failure handling strategy
+6. test plan
+7. extension points for future provider/channel logic
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+--------------B. Build prompt for Codex (Code mode)----------------
+
+Implement the first notification trigger from payment lifecycle events in /services/notification-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing notification service code.
+6. Review payment.status.updated.v1 contract if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create an async notification trigger that consumes payment.status.updated.v1 and publishes notification.requested.v1.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume payment.status.updated.v1
+- validate event envelope
+- create notification requests only for selected statuses
+- publish notification.requested.v1
+- persist notification request records in PostgreSQL
+- ensure idempotency so the same payment/status does not generate duplicate notifications
+- do not call external SMS/email/push providers yet
+- do not deliver notifications inline
+
+Notification trigger rules:
+- for initial implementation, generate notification requests only when payment status is:
+  - COMPLETED
+  - FAILED
+- do not generate requests for:
+  - ACCEPTED
+  - PENDING
+  - PROCESSING
+  - REJECTED (unless repo conventions already require it; otherwise ignore for now)
+- create a clear mapping function from payment status to notification template key
+
+Domain model requirements:
+- NotificationRequest
+  - notificationId
+  - eventId
+  - correlationId
+  - entityType
+  - entityId
+  - customerId optional placeholder
+  - channel
+  - templateKey
+  - payload
+  - status
+  - createdAt
+  - updatedAt
+- NotificationRequestStatus values:
+  - REQUESTED
+  - QUEUED
+  - SENT
+  - FAILED
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - createNotificationRequest(...)
+  - findNotificationBySourceEventAndTemplate(...)
+  - getNotificationById(...)
+- Kafka adapter additions:
+  - consume payment.status.updated.v1
+  - publish notification.requested.v1
+
+Event requirements:
+- publish notification.requested.v1 using canonical event envelope if shared-events exists
+- payload should include:
+  - notificationId
+  - sourceEventId
+  - paymentId
+  - status
+  - channel placeholder (default push or configurable placeholder)
+  - templateKey
+  - amount
+  - currency
+  - destinationAccountId masked or placeholder if needed
+- avoid leaking sensitive fields
+- do not include raw secrets or unsafe PII
+
+Idempotency rules:
+- duplicate payment.status.updated.v1 events must not create duplicate notifications
+- use source eventId + templateKey or similar safe key
+- same payment with different statuses may generate different notifications
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - notification requests created
+  - duplicate notifications skipped
+  - notification events published
+
+Tests required:
+- COMPLETED status creates notification request and emits notification.requested.v1
+- FAILED status creates notification request and emits notification.requested.v1
+- ACCEPTED/PENDING/PROCESSING do not create notification requests
+- duplicate source event does not create duplicate notification
+- malformed event is handled safely
+- notification payload does not include forbidden raw sensitive fields
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future provider delivery integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+-------------------
+
+6) Audit Enrichment for Payment Lifecycle
+
+This gives you lifecycle visibility across payment creation, processing, and completion/failure.
+
+-------------------A. Plan prompt for Codex (Ask mode)
+
+
+You are implementing audit enrichment for the payment lifecycle in FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/audit-service.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services/audit-service
+- code under /services/payment-orchestration if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first audit enrichment flow for payment lifecycle events.
+
+Business intent:
+- payment actions must be auditable end-to-end
+- audit records must be searchable by paymentId, eventId, and correlationId
+- audit recording should be append-oriented
+- enrichment should react to lifecycle events, not depend on synchronous coupling
+
+Expected responsibilities:
+- consume relevant payment lifecycle events
+- normalize them into audit records
+- store searchable audit events
+- support future query APIs by entity and correlation
+
+For initial implementation, consider these events:
+- payment.initiated.v1
+- payment.status.updated.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. audit record model
+3. event-to-audit mapping rules
+4. idempotency strategy
+5. search/query considerations
+6. failure handling strategy
+7. test plan
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+--------------B. Build prompt for Codex (Code mode)--------------
+
+
+Implement the first audit enrichment for payment lifecycle events in /services/audit-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing audit service code.
+6. Review payment event contracts if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create event-driven audit enrichment for payment lifecycle events.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume:
+  - payment.initiated.v1
+  - payment.status.updated.v1
+- validate event envelopes
+- transform consumed events into append-oriented audit records
+- persist audit records in PostgreSQL
+- support idempotent consumption so duplicate events do not write duplicate audit entries
+- do not depend on synchronous calls back into payment service
+
+Audit record requirements:
+- create or extend AuditEvent model to include:
+  - auditId
+  - sourceEventId
+  - correlationId
+  - eventType
+  - entityType
+  - entityId
+  - actor optional placeholder
+  - payload
+  - createdAt
+- entityType for these flows should be PAYMENT
+- entityId should be paymentId
+- payload should be safe and searchable
+- preserve core fields like amount, currency, status, sourceAccountId/destinationAccountId in a safe form
+- do not store unsafe secrets or raw sensitive values
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - createAuditEvent(...)
+  - findAuditBySourceEventId(...)
+  - getAuditByEntityId(...)
+  - getAuditByCorrelationId(...)
+- Kafka adapter additions:
+  - consume payment.initiated.v1
+  - consume payment.status.updated.v1
+
+Mapping rules:
+- payment.initiated.v1 -> create audit event with eventType payment.initiated.v1
+- payment.status.updated.v1 -> create audit event with eventType payment.status.updated.v1
+- duplicate sourceEventId must not write duplicates
+- keep mapping logic isolated and reusable
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - audit records created
+  - duplicate audit events skipped
+  - malformed lifecycle events rejected
+
+Tests required:
+- consume payment.initiated.v1 creates audit event
+- consume payment.status.updated.v1 creates audit event
+- duplicate source event does not create duplicate audit event
+- malformed event is handled safely
+- stored audit record includes searchable entityId and correlationId
+- unsafe fields are not persisted
+
+Optional query support:
+- if query endpoints already exist in audit service, ensure they can retrieve events by paymentId and correlationId
+- if not, add placeholders only if small and aligned with existing service shape
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future audit enrichment from loans, onboarding, and ledger events
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+---------------What to do after these
+
+After Codex runs these two, your next best prompts are:
+
+Sumsub webhook consumer
+Onboarding workflow state transitions
+Rules engine integration for loan eligibility
+Payment-to-balance reconciliation job
+Provider delivery worker for notifications
+Recommended sequence now
+
+Run in this order:
+
+Balance Service (Redis-first)
+Payment Service (Kafka-first)
+Payment Async Processor Consumer
+Balance Projection Updater
+Notification Trigger from Payment Status
+Audit Enrichment for Payment Lifecycle
+
+That gives you a clean, high-TPS money movement backbone.
+
+If you want, I’ll keep going and give you the next exact Codex prompts for:
+
+Sumsub webhook consumer
+Onboarding workflow state transitions
+
+----------------------------............----------
+
+7) Sumsub Webhook Consumer
+
+This is the entry point for Sumsub review results into your platform.
+
+A. Plan prompt for Codex (Ask mode)
+
+---------
+You are implementing the Sumsub webhook consumer for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/ekyc-orchestration.md if present
+- code under /services/ekyc-orchestration
+- shared packages under /packages if present
+
+Goal:
+Design the first Sumsub webhook consumer that receives applicant and review status updates and maps them into internal onboarding events.
+
+Business intent:
+- Sumsub owns the verification flow
+- our platform owns onboarding orchestration and internal state
+- webhook handling must be safe, idempotent, and auditable
+- no customer/account creation in core banking yet
+- webhook processing must emit internal events for downstream workflow handling
+
+Expected responsibilities:
+- receive Sumsub webhook payloads
+- verify webhook authenticity with a signature verification placeholder
+- map Sumsub statuses and review results into internal eKYC states
+- persist webhook processing state and internal verification state
+- emit ekyc.status.updated.v1
+- avoid duplicate processing of the same webhook event
+
+Please produce:
+1. proposed folder/files to create or update
+2. webhook endpoint design
+3. signature verification approach placeholder
+4. mapping from Sumsub review results to internal statuses
+5. idempotency strategy
+6. failure-handling strategy
+7. test plan
+8. future extension points for manual review and workflow
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+--------B. Build prompt for Codex (Code mode)
+Implement the first Sumsub webhook consumer in /services/ekyc-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing eKYC service code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create a webhook endpoint for Sumsub that safely receives review status updates and converts them into internal eKYC state changes.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - POST /webhooks/sumsub
+- validate webhook payload shape
+- implement signature verification as a clear adapter or hook placeholder
+- no raw secrets in logs
+- persist webhook receipt and internal status transition safely
+- emit ekyc.status.updated.v1
+- ensure idempotent processing of webhook events
+
+Internal domain model requirements:
+- EkycSession
+  - sessionId
+  - internalCustomerId optional
+  - provider = SUMSUB
+  - sumsubApplicantId
+  - verificationLevel optional
+  - status
+  - reviewResult optional
+  - createdAt
+  - updatedAt
+- WebhookReceipt
+  - receiptId
+  - source = SUMSUB
+  - externalEventId or dedupe key
+  - eventType optional
+  - receivedAt
+  - processedAt optional
+  - correlationId optional
+
+Internal status mapping requirements:
+- map Sumsub-style outcomes into internal states:
+  - INITIATED
+  - PENDING_REVIEW
+  - APPROVED
+  - REJECTED
+  - ON_HOLD
+- keep mapping logic isolated so it can be extended later
+- if exact Sumsub fields differ, create a clean mapper with TODOs rather than hard-coding fragile assumptions
+
+Webhook behavior rules:
+- parse webhook payload
+- determine dedupe key from external event/applicant/review data
+- reject malformed payloads safely
+- skip duplicate webhook events
+- update EkycSession status based on mapped result
+- persist webhook receipt
+- emit ekyc.status.updated.v1 with canonical event envelope if shared-events exists
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getEkycSessionBySumsubApplicantId(...)
+  - updateEkycSessionStatus(...)
+  - createWebhookReceipt(...)
+  - hasProcessedWebhookReceipt(...)
+  - markWebhookReceiptProcessed(...)
+- Kafka adapter additions:
+  - publish ekyc.status.updated.v1
+- Sumsub webhook verifier adapter:
+  - verifySignature(headers, rawBody) placeholder interface
+
+Event requirements:
+- publish ekyc.status.updated.v1 with:
+  - eventId
+  - correlationId if available
+  - sessionId
+  - sumsubApplicantId
+  - oldStatus optional
+  - newStatus
+  - reviewResult optional
+  - provider = SUMSUB
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support where available
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - webhooks received
+  - webhooks validated
+  - duplicate webhooks skipped
+  - ekyc status updates emitted
+
+
+  -------------------
+  8) Onboarding Workflow State Transitions
+
+This consumes eKYC updates and moves onboarding through review, approval, rejection, and hold states.
+
+A. Plan prompt for Codex (Ask mode)
+
+You are implementing onboarding workflow state transitions for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/workflow-case-management.md if present
+- docs/services/ekyc-orchestration.md if present
+- code under /services/workflow-case-management
+- code under /services/ekyc-orchestration if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first onboarding workflow state transition handler that reacts to ekyc.status.updated.v1 events.
+
+Business intent:
+- onboarding is a controlled workflow, not just a provider result
+- eKYC approval should move onboarding forward
+- rejection or hold should create clear workflow state and case handling
+- workflow transitions must be auditable and idempotent
+- no Fineract onboarding yet
+
+Expected responsibilities:
+- consume ekyc.status.updated.v1
+- create or update onboarding review cases
+- transition onboarding workflow state
+- expose current workflow state by case or onboarding reference
+- emit case.created.v1 and/or case.action.recorded.v1 where appropriate
+
+Please produce:
+1. proposed folder/files to create or update
+2. onboarding state machine
+3. event-to-workflow mapping rules
+4. case creation/update strategy
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. future extension points for manual approval and downstream account opening
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+---------------------B. Build prompt for Codex (Code mode)
+
+Implement the first onboarding workflow state transitions in /services/workflow-case-management.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing workflow/case management service code.
+6. Review ekyc.status.updated.v1 contract if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create workflow logic that reacts to eKYC status updates and manages onboarding case state.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume ekyc.status.updated.v1
+- create or update onboarding workflow cases
+- persist workflow state transitions in PostgreSQL
+- emit case.created.v1 when a new onboarding review case is created
+- emit case.action.recorded.v1 when an existing case changes state
+- ensure idempotent processing of incoming ekyc events
+- no Fineract integration yet
+
+Domain model requirements:
+- Case
+  - caseId
+  - caseType = ONBOARDING_REVIEW
+  - entityType = EKYC_SESSION or CUSTOMER_ONBOARDING
+  - entityId
+  - status
+  - createdAt
+  - updatedAt
+- CaseAction
+  - actionId
+  - caseId
+  - actionType
+  - oldStatus optional
+  - newStatus
+  - reason optional
+  - sourceEventId
+  - createdAt
+
+Workflow state requirements:
+- supported onboarding case statuses:
+  - NEW
+  - IN_REVIEW
+  - APPROVED
+  - REJECTED
+  - ON_HOLD
+- map incoming ekyc.status.updated.v1 states as follows:
+  - APPROVED -> onboarding case moves to APPROVED
+  - REJECTED -> onboarding case moves to REJECTED
+  - ON_HOLD -> onboarding case moves to ON_HOLD
+  - PENDING_REVIEW -> onboarding case moves to IN_REVIEW
+- if no case exists yet:
+  - create an onboarding review case when first relevant event arrives
+- if a case already exists:
+  - update case status with valid transition rules
+- keep mapping logic isolated and easy to extend
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getCaseByEntity(...)
+  - createCase(...)
+  - updateCaseStatus(...)
+  - createCaseAction(...)
+  - hasProcessedWorkflowEvent(...)
+  - markWorkflowEventProcessed(...)
+- Kafka adapter additions:
+  - consume ekyc.status.updated.v1
+  - publish case.created.v1
+  - publish case.action.recorded.v1
+
+Idempotency rules:
+- duplicate sourceEventId must not create duplicate cases or duplicate case actions
+- invalid transitions should be blocked safely
+- same status repeated should be ignored or recorded safely without duplicate mutation
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - onboarding cases created
+  - onboarding cases transitioned
+  - duplicate workflow events skipped
+  - invalid transitions blocked
+
+Tests required:
+- APPROVED ekyc event creates or updates case to APPROVED
+- REJECTED ekyc event creates or updates case to REJECTED
+- ON_HOLD ekyc event creates or updates case to ON_HOLD
+- PENDING_REVIEW ekyc event creates or updates case to IN_REVIEW
+- duplicate sourceEventId does not process twice
+- invalid transition is blocked safely
+- case.created.v1 emitted on new case creation
+- case.action.recorded.v1 emitted on status change
+
+Optional query support:
+- if the workflow service already has query endpoints, ensure onboarding cases can be retrieved by entityId
+- otherwise keep endpoint work minimal and focused on event-driven transitions
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future manual review queue, banker approval, and downstream customer/account creation
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+------------------------
+
+Recommended run order now
+
+Run these after the payment flow pieces:
+
+Sumsub Webhook Consumer
+Onboarding Workflow State Transitions
+
+Then the next smart prompts are:
+
+manual review queue endpoint
+notification trigger from onboarding status
+customer creation after onboarding approval
+
+
+------------------------------------------------9) Manual Review Queue Endpoint
+
+This gives ops or compliance a real queue to work from when onboarding lands in review or hold.
+
+A. Plan prompt for Codex (Ask mode)
+
+
+You are implementing the manual review queue endpoint for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/workflow-case-management.md if present
+- code under /services/workflow-case-management
+- shared packages under /packages if present
+
+Goal:
+Design the first manual review queue API for onboarding review cases.
+
+Business intent:
+- operations/compliance users need to view onboarding cases requiring action
+- the queue must support filtering and basic status transitions
+- all actions must be auditable
+- queue operations must not directly create customer/accounts yet
+
+Expected responsibilities:
+- list onboarding review cases
+- filter by status
+- get case details
+- allow basic manual actions such as approve, reject, hold, request-review
+- create case actions for all manual transitions
+- emit case.action.recorded.v1 on manual changes
+
+Please produce:
+1. proposed folder/files to create or update
+2. API design
+3. allowed manual actions and state transitions
+4. audit/case action approach
+5. authorization placeholder design
+6. failure handling strategy
+7. test plan
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+--------------B. Build prompt for Codex (Code mode)
+Implement the first manual review queue endpoint in /services/workflow-case-management.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing workflow/case management service code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first manual review queue APIs for onboarding review cases.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /cases/onboarding-review
+  - GET /cases/:caseId
+  - POST /cases/:caseId/actions
+- focus only on caseType = ONBOARDING_REVIEW
+- support filtering in GET /cases/onboarding-review by:
+  - status
+  - entityId optional
+  - limit/offset or page/pageSize placeholder
+- POST /cases/:caseId/actions must support manual actions:
+  - APPROVE
+  - REJECT
+  - HOLD
+  - REQUEST_REVIEW
+- every manual action must:
+  - validate action payload
+  - load existing case
+  - enforce valid transition rules
+  - create CaseAction record
+  - update case status
+  - emit case.action.recorded.v1
+- no downstream customer creation yet
+- add simple authorization placeholder hook/middleware for internal ops user
+
+Domain rules:
+- valid status set:
+  - NEW
+  - IN_REVIEW
+  - APPROVED
+  - REJECTED
+  - ON_HOLD
+- manual action mapping:
+  - APPROVE -> APPROVED
+  - REJECT -> REJECTED
+  - HOLD -> ON_HOLD
+  - REQUEST_REVIEW -> IN_REVIEW
+- invalid transitions must be blocked safely
+- same status/action replay should not duplicate actions unsafely
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - listCasesByTypeAndFilters(...)
+  - getCaseById(...)
+  - updateCaseStatus(...)
+  - createCaseAction(...)
+- Kafka adapter additions:
+  - publish case.action.recorded.v1
+
+Response requirements:
+- standardized API envelope
+- safe error responses
+- include case status and updatedAt in response
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+
+
+
+-----------10) Notification Trigger from Onboarding Status
+
+This reacts to onboarding case or eKYC outcomes and creates customer-facing notifications.
+
+A. Plan prompt for Codex (Ask mode)
+
+
+
+You are implementing notification triggering from onboarding lifecycle events for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/notification-service.md if present
+- docs/services/workflow-case-management.md if present
+- docs/services/ekyc-orchestration.md if present
+- code under /services/notification-service
+- shared packages under /packages if present
+
+Goal:
+Design the first onboarding notification trigger that reacts to onboarding and eKYC status changes.
+
+Business intent:
+- customers should be notified of meaningful onboarding outcomes
+- notification generation must be async and idempotent
+- not every intermediate state should notify the customer
+- providers are still placeholders; only request generation is needed
+
+Expected responsibilities:
+- consume ekyc.status.updated.v1 and/or case.action.recorded.v1
+- map relevant states to notification intents
+- create notification request records
+- emit notification.requested.v1
+- avoid duplicate notifications for the same onboarding outcome
+
+Please produce:
+1. proposed folder/files to create or update
+2. event-to-notification mapping rules
+3. idempotency strategy
+4. notification payload design
+5. failure handling strategy
+6. test plan
+7. extension points for future provider delivery and templates
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+
+
+-----------B. Build prompt for Codex (Code mode)
+
+
+Implement the first onboarding notification trigger in /services/notification-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing notification service code.
+6. Review relevant onboarding event contracts if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create an async onboarding notification trigger that reacts to onboarding-related events and publishes notification.requested.v1.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume:
+  - ekyc.status.updated.v1
+  - case.action.recorded.v1
+- validate event envelopes
+- create notification requests only for selected onboarding outcomes
+- publish notification.requested.v1
+- persist notification request records in PostgreSQL
+- ensure idempotency so the same onboarding outcome does not generate duplicate notifications
+- do not call external providers yet
+
+Notification rules:
+- for initial implementation, generate notifications for:
+  - ekyc.status.updated.v1 when newStatus = APPROVED
+  - ekyc.status.updated.v1 when newStatus = REJECTED
+  - ekyc.status.updated.v1 when newStatus = ON_HOLD
+  - case.action.recorded.v1 when newStatus = APPROVED
+  - case.action.recorded.v1 when newStatus = REJECTED
+- do not notify on:
+  - INITIATED
+  - PENDING_REVIEW
+  - IN_REVIEW
+  - REQUEST_REVIEW unless explicitly represented as a final customer-facing state
+- keep mapping logic isolated
+
+Domain model requirements:
+- reuse or extend NotificationRequest model with:
+  - notificationId
+  - sourceEventId
+  - correlationId
+  - entityType
+  - entityId
+  - templateKey
+  - channel placeholder
+  - payload
+  - status
+  - createdAt
+  - updatedAt
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - createNotificationRequest(...)
+  - findNotificationBySourceEventAndTemplate(...)
+- Kafka adapter additions:
+  - consume ekyc.status.updated.v1
+  - consume case.action.recorded.v1
+  - publish notification.requested.v1
+
+Payload requirements:
+- include only safe fields
+- include:
+  - onboarding reference or entityId
+  - status
+  - provider placeholder if relevant
+  - templateKey
+  - reason placeholder if safe
+- do not leak secrets or unsafe PII
+
+Idempotency rules:
+- duplicate source event must not create duplicate notification requests
+- same entity with different final outcomes may generate distinct notifications where reasonable
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - onboarding notifications created
+  - duplicate onboarding notifications skipped
+  - onboarding notification events published
+
+Tests required:
+- APPROVED onboarding-related event creates notification request and emits notification.requested.v1
+- REJECTED onboarding-related event creates notification request and emits notification.requested.v1
+- ON_HOLD ekyc event creates notification request and emits notification.requested.v1
+- non-notifiable intermediate statuses do not create notification requests
+- duplicate source event does not create duplicate notification
+- malformed event is handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for provider delivery templates and localization
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+
+---------------------11) Customer Creation After Onboarding Approval
+
+This is the first time the onboarding rail creates an internal customer record — still without Fineract.
+
+A. Plan prompt for Codex (Ask mode)
+
+
+
+You are implementing customer creation after onboarding approval for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/customer-service.md if present
+- docs/services/workflow-case-management.md if present
+- docs/services/ekyc-orchestration.md if present
+- code under /services/customer-service
+- shared packages under /packages if present
+
+Goal:
+Design the first onboarding-approved customer creation flow.
+
+Business intent:
+- approved onboarding should create an internal customer profile
+- customer creation must be event-driven and idempotent
+- do not integrate Fineract yet
+- customer creation must be auditable
+- duplicate approvals must not create duplicate customers
+
+Expected responsibilities:
+- consume onboarding approval signal(s)
+- determine whether customer already exists
+- create internal customer record
+- emit customer.created.v1
+- allow future extension to trigger account creation later
+
+Please produce:
+1. proposed folder/files to create or update
+2. event-to-customer-creation rules
+3. idempotency strategy
+4. customer creation payload design
+5. failure handling strategy
+6. test plan
+7. future extension points for downstream account opening and core banking sync
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+
+
+-------B. Build prompt for Codex (Code mode)
+
+
+
+
+Implement the first customer creation after onboarding approval flow in /services/customer-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing customer service code.
+6. Review onboarding-related event contracts if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create an event-driven customer creation flow that reacts to approved onboarding outcomes.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic in src/events or equivalent repo pattern
+- consume onboarding approval events from one or both of:
+  - ekyc.status.updated.v1 where newStatus = APPROVED
+  - case.action.recorded.v1 where newStatus = APPROVED and caseType = ONBOARDING_REVIEW
+- validate event envelope
+- determine a stable onboarding identity key or entity reference
+- create an internal customer record in PostgreSQL
+- emit customer.created.v1
+- ensure idempotent customer creation
+- do not integrate Fineract yet
+- do not create accounts yet
+
+Customer domain requirements:
+- Customer
+  - customerId
+  - onboardingReference or sourceEntityId
+  - status = ACTIVE or VERIFIED placeholder
+  - providerReference optional
+  - createdAt
+  - updatedAt
+- keep the customer model minimal and safe for now
+- if personal profile fields are not yet available in event payloads, create safe placeholders and TODOs instead of inventing unsafe data
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - findCustomerByOnboardingReference(...)
+  - createCustomer(...)
+  - hasProcessedCustomerCreationEvent(...)
+  - markCustomerCreationEventProcessed(...)
+- Kafka adapter additions:
+  - consume onboarding approval events
+  - publish customer.created.v1
+
+Behavior rules:
+- only create customer on approved onboarding event
+- ignore non-approved onboarding states
+- duplicate source event must not create duplicate customer
+- if customer already exists for the onboarding reference, skip safely
+- emit customer.created.v1 only on first successful creation
+- create audit-friendly logs/metadata placeholders
+
+Event requirements:
+- publish customer.created.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId
+  - customerId
+  - onboardingReference
+  - sourceEventId
+  - timestamp
+- do not include unsafe secrets or raw PII
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - customers created from onboarding
+  - duplicate customer creation events skipped
+  - onboarding approvals ignored because customer already exists
+
+Tests required:
+- approved onboarding event creates customer and emits customer.created.v1
+- non-approved onboarding event does not create customer
+- duplicate source event does not create duplicate customer
+- existing customer for onboarding reference is handled safely
+- malformed event is handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future profile enrichment and downstream account opening
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results

@@ -1,0 +1,1381 @@
+🏦 36) Liquidity Management Service
+
+This is your real-time cash position engine.
+A. Plan prompt (Ask mode)
+
+
+You are implementing the Liquidity Management Service for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/events.md
+- docs/services/payment-orchestration.md
+- docs/services/account-service.md
+- docs/services/ledger-service.md
+- docs/services/accounting-service.md
+- shared packages
+
+Goal:
+Design real-time liquidity tracking across the platform.
+
+Business intent:
+- the bank must know its cash position at all times
+- track liquidity per currency
+- track internal vs external funds
+- event-driven updates only (no polling)
+
+Responsibilities:
+- maintain liquidity positions
+- consume financial events
+- update liquidity buckets
+- expose liquidity APIs
+
+Please produce:
+1. liquidity model (positions, buckets)
+2. event mapping strategy
+3. API design
+4. idempotency strategy
+5. failure handling
+6. test plan
+7. extension for multi-entity / multi-currency
+
+
+---------------------
+B. Build prompt (Code mode)
+
+Implement Liquidity Management Service in /services/liquidity-service.
+
+Goal:
+Track real-time liquidity positions using event-driven updates.
+
+Endpoints:
+- GET /liquidity/positions
+- GET /liquidity/positions/:currency
+- GET /liquidity/summary
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- event-driven only (Kafka)
+
+Consume events:
+- payment.status.updated.v1 (COMPLETED only)
+- loan.disbursement.initiated.v1
+- loan.repayment.initiated.v1
+- fee.collected.v1
+
+Liquidity model:
+- LiquidityPosition:
+  - currency
+  - availableCash
+  - reservedCash
+  - outgoingPending
+  - incomingPending
+  - updatedAt
+
+Rules:
+- payment OUT → reduce availableCash
+- payment IN → increase availableCash
+- loan disbursement → reduce liquidity
+- repayment → increase liquidity
+- fees → increase liquidity
+
+Adapters:
+- PostgreSQL:
+  - getLiquidityPosition(currency)
+  - upsertLiquidityPosition(...)
+  - hasProcessedLiquidityEvent(...)
+- Kafka:
+  - consume events
+
+Behavior:
+- idempotent event processing
+- never double count
+- safe handling of unknown currency
+
+Observability:
+- logs + correlationId
+- metrics:
+  - liquidity updates
+  - duplicate events skipped
+
+Tests:
+- payment reduces liquidity
+- repayment increases liquidity
+- duplicate event skipped
+- multi-currency works
+
+Deliver:
+- code + tests + summary
+
+
+==================================
+
+⚠️ 37) Limits Engine (CRITICAL)
+
+This is the guardrail of your bank.
+
+
+=========================A. Plan prompt (Ask mode)
+
+You are implementing Limits Engine for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- payment-orchestration
+- loan-orchestration
+- rules-engine
+- workflow-case-management
+
+Goal:
+Design system-wide limits enforcement.
+
+Business intent:
+- prevent excessive exposure
+- enforce daily/monthly caps
+- trigger approvals when limits exceeded
+
+Responsibilities:
+- evaluate limits before transactions
+- track usage per entity
+- integrate with workflow for overrides
+
+Produce:
+1. limits model
+2. evaluation flow
+3. API design
+4. enforcement strategy
+5. test plan
+
+=====================
+
+
+You are implementing Limits Engine for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- payment-orchestration
+- loan-orchestration
+- rules-engine
+- workflow-case-management
+
+Goal:
+Design system-wide limits enforcement.
+
+Business intent:
+- prevent excessive exposure
+- enforce daily/monthly caps
+- trigger approvals when limits exceeded
+
+Responsibilities:
+- evaluate limits before transactions
+- track usage per entity
+- integrate with workflow for overrides
+
+Produce:
+1. limits model
+2. evaluation flow
+3. API design
+4. enforcement strategy
+5. test plan
+
+===============
+
+B. Build prompt (Code mode)
+
+Implement Limits Engine in /services/limits-engine.
+
+Goal:
+Enforce transaction and exposure limits.
+
+Endpoints:
+- POST /limits/evaluate
+- POST /limits/rules
+- GET /limits/rules/:ruleId
+
+Consume events:
+- payment.initiated.v1
+- loan.disbursement.initiated.v1
+
+Limit types:
+- DAILY_TX_LIMIT
+- MONTHLY_TX_LIMIT
+- LOAN_EXPOSURE_LIMIT
+- ACCOUNT_BALANCE_LIMIT placeholder
+
+LimitRule:
+- ruleId
+- entityType (CUSTOMER, ACCOUNT)
+- limitType
+- thresholdAmount
+- currency
+- period (DAILY, MONTHLY)
+- status
+
+LimitUsage:
+- usageId
+- entityId
+- period
+- usedAmount
+
+Rules:
+- if within limit → allow
+- if exceed → reject OR require approval
+- approval → trigger workflow case
+
+Emit:
+- limit.allowed.v1
+- limit.blocked.v1
+- limit.override.required.v1
+
+Adapters:
+- PostgreSQL:
+  - getLimitRules(...)
+  - updateUsage(...)
+  - getUsage(...)
+- Workflow:
+  - createApprovalCase(...)
+- Kafka:
+  - publish events
+
+Behavior:
+- idempotent
+- accurate aggregation per period
+- no race conditions (use safe update strategy)
+
+Tests:
+- within limit allowed
+- exceeding limit blocked
+- override triggers workflow
+- daily reset works
+
+Deliver:
+- code + tests + summary
+
+===============
+
+🏛️ 38) Treasury Operations Service
+
+This is where treasury actually moves money intentionally.
+
+
+A. Plan prompt (Ask mode)
+
+You are implementing Treasury Operations Service.
+
+Read:
+- AGENTS.md
+- liquidity-service
+- payment-orchestration
+- accounting-service
+
+Goal:
+Design treasury operations for internal fund management.
+
+Business intent:
+- manage internal liquidity transfers
+- move funds between treasury accounts
+- maintain funding buffers
+
+Responsibilities:
+- initiate treasury transfers
+- track funding accounts
+- rebalance liquidity
+
+Produce:
+1. treasury account model
+2. transfer flow
+3. API design
+4. idempotency strategy
+5. test plan
+
+
+===============
+
+You are implementing Treasury Operations Service.
+
+Read:
+- AGENTS.md
+- liquidity-service
+- payment-orchestration
+- accounting-service
+
+Goal:
+Design treasury operations for internal fund management.
+
+Business intent:
+- manage internal liquidity transfers
+- move funds between treasury accounts
+- maintain funding buffers
+
+Responsibilities:
+- initiate treasury transfers
+- track funding accounts
+- rebalance liquidity
+
+Produce:
+1. treasury account model
+2. transfer flow
+3. API design
+4. idempotency strategy
+5. test plan
+
+=========================
+
+B. Build prompt (Code mode)
+
+
+=================
+
+Implement Treasury Operations Service in /services/treasury-operations.
+
+Goal:
+Enable internal fund management and liquidity balancing.
+
+Endpoints:
+- POST /treasury/transfer
+- GET /treasury/accounts
+- GET /treasury/transfers/:transferId
+
+TreasuryAccount:
+- accountId
+- currency
+- balance
+- type (SETTLEMENT, FUNDING, BUFFER)
+
+TreasuryTransfer:
+- transferId
+- fromAccount
+- toAccount
+- amount
+- currency
+- status
+- createdAt
+
+Requirements:
+- use payment-orchestration for transfers
+- do NOT mutate balances directly
+- emit treasury.transfer.initiated.v1
+
+Rules:
+- must check liquidity before transfer
+- insufficient liquidity → fail
+- idempotent transfer creation
+
+Adapters:
+- PostgreSQL:
+  - createTreasuryTransfer(...)
+  - getTreasuryAccount(...)
+- Payment adapter:
+  - initiateInternalTransfer(...)
+- Kafka:
+  - publish treasury.transfer.initiated.v1
+
+Behavior:
+- validate accounts
+- ensure same currency
+- ensure sufficient funds
+- no double execution
+
+Tests:
+- successful transfer
+- insufficient funds blocked
+- duplicate request skipped
+- event emitted
+
+Deliver:
+- code + tests + summary
+
+
+
+=================🔹 39A) ALM Position Aggregation Engine
+
+This builds the bank-wide balance sheet view.
+
+A. Plan prompt (Ask mode)
+You are implementing ALM Position Aggregation Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- liquidity-service
+- loan-orchestration
+- account-service
+- accounting-service
+- search-indexing-service
+
+
+=================
+
+You are implementing ALM Position Aggregation Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- liquidity-service
+- loan-orchestration
+- account-service
+- accounting-service
+- search-indexing-service
+
+Goal:
+Design a system that aggregates bank-wide positions.
+
+Business intent:
+- provide real-time snapshot of assets vs liabilities
+- support per currency aggregation
+- support per product aggregation
+
+Responsibilities:
+- aggregate:
+  - loans (assets)
+  - deposits (liabilities)
+  - treasury accounts
+- expose aggregated balance sheet
+
+Produce:
+1. aggregation model
+2. data sources mapping
+3. API design
+4. idempotency strategy
+5. test plan
+=================
+
+
+B. Build prompt (Code mode)
+
+
+---------
+
+
+Implement ALM Position Aggregation Engine in /services/alm-engine.
+
+Goal:
+Provide aggregated balance sheet view.
+
+Endpoints:
+- GET /alm/positions
+- GET /alm/positions/:currency
+- GET /alm/positions/summary
+
+Model:
+- ALMPosition:
+  - currency
+  - totalAssets
+  - totalLiabilities
+  - netPosition
+  - updatedAt
+
+Data sources:
+- Loan accounts → assets
+- Deposit accounts → liabilities
+- Treasury accounts → both
+
+Adapters:
+- PostgreSQL:
+  - fetchLoanPositions(...)
+  - fetchDepositPositions(...)
+  - fetchTreasuryPositions(...)
+- Kafka:
+  - optional updates from events
+
+Rules:
+- assets = loans
+- liabilities = deposits
+- netPosition = assets - liabilities
+
+Observability:
+- metrics:
+  - aggregation runs
+  - latency
+
+Tests:
+- aggregation correctness
+- multi-currency aggregation
+- empty dataset safe handling
+
+Deliver:
+- code + tests + summary
+
+================
+🔹 39B) Maturity Bucket Engine
+
+This is where ALM becomes real.
+
+👉 “When does money come in vs go out?”
+
+=================A. Plan prompt (Ask mode)
+
+You are implementing Maturity Bucket Engine.
+
+Read:
+- loan schedule engine
+- deposit account data
+- alm-engine
+
+Goal:
+Design maturity bucket system.
+
+Business intent:
+- track cash inflows/outflows over time
+- identify maturity gaps
+
+Buckets:
+- 0–7 days
+- 8–30 days
+- 1–3 months
+- 3–6 months
+- 6–12 months
+- >1 year
+
+Responsibilities:
+- assign loans and deposits to buckets
+- calculate inflows vs outflows
+
+Produce:
+1. bucket model
+2. assignment rules
+3. API design
+4. test plan
+
+============B. Build prompt (Code mode)
+
+Implement Maturity Bucket Engine in /services/alm-engine.
+
+Goal:
+Track cash flow timing mismatches.
+
+Endpoints:
+- GET /alm/maturity-buckets
+
+Model:
+- MaturityBucket:
+  - bucketName
+  - inflowAmount
+  - outflowAmount
+  - netGap
+
+Rules:
+- loan repayments → inflow
+- deposit withdrawals/maturity → outflow
+- use repayment schedule engine for loan cashflows
+- use simple deposit maturity assumptions placeholder
+
+Buckets:
+- 0–7 days
+- 8–30 days
+- 1–3 months
+- 3–6 months
+- 6–12 months
+- >1 year
+
+Adapters:
+- PostgreSQL:
+  - getLoanSchedules(...)
+  - getDepositData(...)
+
+Behavior:
+- deterministic bucket assignment
+- safe handling of missing schedule
+
+Observability:
+- metrics:
+  - bucket calculations
+
+Tests:
+- correct bucket assignment
+- correct inflow/outflow calculation
+- edge cases handled safely
+
+Deliver:
+- code + tests + summary
+
+=======🔹 39C) ALM Metrics & Exposure Engine
+
+This is what management actually looks at.
+
+===============A. Plan prompt (Ask mode)
+You are implementing ALM Metrics Engine.
+
+
+You are implementing ALM Metrics Engine.
+
+Read:
+- alm position engine
+- maturity bucket engine
+
+Goal:
+Design ALM metrics and exposure indicators.
+
+Business intent:
+- quantify risk exposure
+- support decision making
+
+Metrics:
+- liquidity gap
+- asset/liability ratio
+- maturity mismatch ratio
+
+Produce:
+1. metric definitions
+2. calculation strategy
+3. API design
+4. test plan
+
+
+-------------B. Build prompt (Code mode)
+
+Implement ALM Metrics Engine in /services/alm-engine.
+
+Goal:
+Provide ALM risk metrics.
+
+Endpoints:
+- GET /alm/metrics
+
+Metrics:
+- Liquidity Gap:
+  - totalAssets - totalLiabilities
+
+- Asset/Liability Ratio:
+  - totalAssets / totalLiabilities
+
+- Short-term Gap:
+  - from maturity buckets (0–30 days)
+
+- Funding Gap Ratio:
+  - short-term outflow vs inflow
+
+Adapters:
+- use internal ALM aggregation and bucket logic
+
+Behavior:
+- safe divide-by-zero handling
+- deterministic calculations
+
+Observability:
+- metrics calculation latency
+
+Tests:
+- correct metric calculation
+- edge cases handled
+- zero-liability handling safe
+
+Deliver:
+- code + tests + summary
+
+==============
+
+🧠 What you just built (this is big)
+
+With ALM, your system now understands:
+
+🏦 Balance Sheet
+Assets vs Liabilities
+⏳ Time Dimension
+When cash comes vs goes
+⚠️ Risk Exposure
+Liquidity gap
+Funding gap
+Maturity mismatch
+🔥 This is Flexcube territory
+
+At this point, your platform can answer:
+
+“Are we liquid today?”
+“Will we run out of cash in 30 days?”
+“Are we over-lending vs deposits?”
+“What’s our short-term funding risk?”
+
+That’s not fintech anymore.
+
+That’s bank intelligence layer.
+
+🧭 Next level (if you continue)
+
+After ALM, the next upgrades are:
+
+👉 Interest Rate Risk Engine
+👉 FX / Multi-currency exposure
+👉 Market data integration
+👉 Pricing engine (loan/deposit pricing curves)
+
+Final truth
+
+You now have:
+
+👉 Core banking
+👉 Treasury
+👉 ALM
+
+That’s already:
+
+Mini Flexcube (modern, composable version)
+
+If you want next, I can:
+
+👉 overlay ALM + Treasury into your architecture diagram
+👉 or give Interest Rate Risk Engine prompts (even deeper level)
+
+===========
+
+that is proper ALCO / Treasury / CFO territory.
+
+I’ll give you:
+
+Interest Rate Risk Engine prompts
+Updated master architecture diagram with ALM + Treasury overlaid
+🏦 40) Interest Rate Risk Engine
+
+We’ll structure this in 3 parts, same discipline as before:
+
+Repricing Gap Engine
+NII Sensitivity Engine
+Interest Rate Shock Scenario Engine
+
+==============40A) Repricing Gap Engine
+
+This tells you when assets and liabilities reprice, not just when they mature.
+
+A. Plan prompt (Ask mode)
+You are implementing the Repricing Gap Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- alm-engine
+- liquidity-service
+- loan-orchestration
+- account-service
+- accounting-service
+- shared packages
+
+Goal:
+
+=================
+
+You are implementing the Repricing Gap Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- alm-engine
+- liquidity-service
+- loan-orchestration
+- account-service
+- accounting-service
+- shared packages
+
+Goal:
+Design a repricing gap engine for interest rate risk.
+
+Business intent:
+- measure rate-sensitive asset and liability positions
+- group positions by repricing buckets
+- identify mismatches between asset and liability repricing timing
+
+Responsibilities:
+- classify positions into repricing buckets
+- aggregate repricing-sensitive assets and liabilities
+- expose repricing gap APIs
+
+Please produce:
+1. repricing model
+2. bucket design
+3. data source mapping
+4. API design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for behavioral assumptions and floating-rate products
+
+==================================
+
+B. Build prompt (Code mode)
+
+============
+
+Implement the Repricing Gap Engine in /services/interest-rate-risk-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md if present.
+4. Read docs/contracts/events.md if present.
+5. Review alm-engine, loan-orchestration, and account-service code if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Provide repricing gap analysis for rate-sensitive positions.
+
+Endpoints:
+- GET /irr/repricing-gaps
+- GET /irr/repricing-gaps/:currency
+
+Model:
+- RepricingBucket:
+  - bucketName
+  - repricingAssets
+  - repricingLiabilities
+  - gap
+  - cumulativeGap
+- buckets:
+  - 0–30 days
+  - 31–90 days
+  - 3–6 months
+  - 6–12 months
+  - 1–3 years
+  - >3 years
+
+Data sources:
+- loan accounts and schedules for asset repricing placeholders
+- deposit/savings accounts for liability repricing placeholders
+- treasury accounts if applicable
+- use simple repricing date assumptions for now
+
+Rules:
+- repricingAssets = rate-sensitive loans/instruments
+- repricingLiabilities = rate-sensitive deposits/liabilities
+- gap = assets - liabilities
+- cumulativeGap = running total across ordered buckets
+- keep assumptions isolated and replaceable
+
+Adapters:
+- PostgreSQL:
+  - fetchRateSensitiveLoanPositions(...)
+  - fetchRateSensitiveDepositPositions(...)
+  - fetchTreasuryRateSensitivePositions(...) placeholder
+
+Behavior:
+- deterministic bucket assignment
+- safe handling of missing repricing dates
+- multi-currency support
+- no external market data dependency yet
+
+Observability:
+- structured logging
+- metrics for repricing calculations
+
+Tests:
+- correct bucket assignment
+- correct gap calculation
+- correct cumulative gap calculation
+- multi-currency behavior
+- empty dataset safe handling
+
+Deliver:
+- code + tests + summary
+- TODOs for behavioral deposits and floating-rate repricing assumptions
+
+===================40B) NII Sensitivity Engine
+
+This estimates how Net Interest Income moves when rates move.
+
+A. Plan prompt (Ask mode)
+
+========You are implementing the NII Sensitivity Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- interest-rate-risk-engine
+- alm-engine
+- loan-orchestration
+- account-service
+
+Goal:
+Design a Net Interest Income sensitivity engine.
+
+Business intent:
+- estimate impact of rate changes on earnings
+- support simple parallel shock analysis
+- provide management-level metrics
+
+Responsibilities:
+- calculate base NII placeholder
+- estimate NII change under rate shocks
+- expose NII sensitivity APIs
+
+Please produce:
+1. NII model
+2. sensitivity calculation design
+3. scenario assumptions
+4. API design
+5. test plan
+6. extension points for product-specific pass-through assumptions
+
+==================
+
+B. Build prompt (Code mode)
+
+Implement ALM Metrics Engine in /services/alm-engine.
+
+Goal:
+Provide ALM risk metrics.
+
+Endpoints:
+- GET /alm/metrics
+
+Metrics:
+- Liquidity Gap:
+  - totalAssets - totalLiabilities
+
+- Asset/Liability Ratio:
+  - totalAssets / totalLiabilities
+
+- Short-term Gap:
+  - from maturity buckets (0–30 days)
+
+- Funding Gap Ratio:
+  - short-term outflow vs inflow
+
+Adapters:
+- use internal ALM aggregation and bucket logic
+
+Behavior:
+- safe divide-by-zero handling
+- deterministic calculations
+
+Observability:
+- metrics calculation latency
+
+Tests:
+- correct metric calculation
+- edge cases handled
+- zero-liability handling safe
+
+Deliver:
+- code + tests + summary
+
+
+=================This is where the platform stops being just:
+
+transaction-aware
+liquidity-aware
+maturity-aware
+
+and becomes:
+
+👉 rate-sensitive
+👉 earnings-sensitive
+👉 balance-sheet-sensitive
+
+That is proper ALCO / Treasury / CFO territory.
+
+I’ll give you:
+
+Interest Rate Risk Engine prompts
+Updated master architecture diagram with ALM + Treasury overlaid
+🏦 40) Interest Rate Risk Engine
+
+We’ll structure this in 3 parts, same discipline as before:
+
+Repricing Gap Engine
+NII Sensitivity Engine
+Interest Rate Shock Scenario Engine
+40A) Repricing Gap Engine
+
+This tells you when assets and liabilities reprice, not just when they mature.
+
+A. Plan prompt (Ask mode)
+
+===========
+
+You are implementing the Repricing Gap Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- alm-engine
+- liquidity-service
+- loan-orchestration
+- account-service
+- accounting-service
+- shared packages
+
+Goal:
+Design a repricing gap engine for interest rate risk.
+
+Business intent:
+- measure rate-sensitive asset and liability positions
+- group positions by repricing buckets
+- identify mismatches between asset and liability repricing timing
+
+Responsibilities:
+- classify positions into repricing buckets
+- aggregate repricing-sensitive assets and liabilities
+- expose repricing gap APIs
+
+Please produce:
+1. repricing model
+2. bucket design
+3. data source mapping
+4. API design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for behavioral assumptions and floating-rate products
+
+====================B. Build prompt (Code mode)
+Implement the Repricing Gap Engine in /services/interest-rate-risk-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md if present.
+4. Read docs/contracts/events.md if present.
+5. Review alm-engine, loan-orchestration, and account-service code if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Provide repricing gap analysis for rate-sensitive positions.
+
+Endpoints:
+- GET /irr/repricing-gaps
+- GET /irr/repricing-gaps/:currency
+
+Model:
+- RepricingBucket:
+  - bucketName
+  - repricingAssets
+  - repricingLiabilities
+  - gap
+  - cumulativeGap
+- buckets:
+  - 0–30 days
+  - 31–90 days
+  - 3–6 months
+  - 6–12 months
+  - 1–3 years
+  - >3 years
+
+Data sources:
+- loan accounts and schedules for asset repricing placeholders
+- deposit/savings accounts for liability repricing placeholders
+- treasury accounts if applicable
+- use simple repricing date assumptions for now
+
+Rules:
+- repricingAssets = rate-sensitive loans/instruments
+- repricingLiabilities = rate-sensitive deposits/liabilities
+- gap = assets - liabilities
+- cumulativeGap = running total across ordered buckets
+- keep assumptions isolated and replaceable
+
+Adapters:
+- PostgreSQL:
+  - fetchRateSensitiveLoanPositions(...)
+  - fetchRateSensitiveDepositPositions(...)
+  - fetchTreasuryRateSensitivePositions(...) placeholder
+
+Behavior:
+- deterministic bucket assignment
+- safe handling of missing repricing dates
+- multi-currency support
+- no external market data dependency yet
+
+Observability:
+- structured logging
+- metrics for repricing calculations
+
+Tests:
+- correct bucket assignment
+- correct gap calculation
+- correct cumulative gap calculation
+- multi-currency behavior
+- empty dataset safe handling
+
+Deliver:
+- code + tests + summary
+- TODOs for behavioral deposits and floating-rate repricing assumptions
+
+
+=========================
+
+40B) NII Sensitivity Engine
+
+This estimates how Net Interest Income moves when rates move.
+
+A. Plan prompt (Ask mode)
+
+
+You are implementing the NII Sensitivity Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- interest-rate-risk-engine
+- alm-engine
+- loan-orchestration
+- account-service
+
+Goal:
+Design a Net Interest Income sensitivity engine.
+
+Business intent:
+- estimate impact of rate changes on earnings
+- support simple parallel shock analysis
+- provide management-level metrics
+
+Responsibilities:
+- calculate base NII placeholder
+- estimate NII change under rate shocks
+- expose NII sensitivity APIs
+
+Please produce:
+1. NII model
+2. sensitivity calculation design
+3. scenario assumptions
+4. API design
+5. test plan
+6. extension points for product-specific pass-through assumptions
+
+=====================
+
+B. Build prompt (Code mode)
+
+======================
+
+Implement the NII Sensitivity Engine in /services/interest-rate-risk-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review repricing gap engine if present.
+4. Review relevant loan and deposit models.
+5. Keep controllers thin and put logic in application/domain layers.
+6. Use adapters for PostgreSQL.
+7. Add tests and run verification commands before finishing.
+
+Goal:
+Provide simple Net Interest Income sensitivity analysis under interest rate shocks.
+
+Endpoints:
+- GET /irr/nii-sensitivity
+- POST /irr/nii-sensitivity/scenario
+
+Model:
+- NIISensitivityResult:
+  - currency
+  - baseNii
+  - shockedNii
+  - deltaNii
+  - shockBps
+  - calculatedAt
+
+Initial scenario support:
+- parallel rate shocks:
+  - +100 bps
+  - -100 bps
+  - +200 bps
+  - -200 bps
+- allow POST scenario input for custom shockBps
+
+Calculation rules:
+- use repricing-sensitive asset/liability balances
+- use simple placeholder assumptions:
+  - asset yield changes with shock on repricing assets
+  - liability cost changes with shock on repricing liabilities
+- baseNii and shockedNii should be deterministic and documented
+- keep formulas isolated and replaceable
+
+Adapters:
+- PostgreSQL:
+  - fetchRateSensitiveLoanPositions(...)
+  - fetchRateSensitiveDepositPositions(...)
+
+Behavior:
+- safe divide-by-zero / empty data handling
+- multi-currency support
+- no market data integration yet
+- no stochastic modeling yet
+
+Observability:
+- structured logging
+- metrics for scenario calculations
+
+Tests:
+- base NII calculation works with sample data
+- positive shock changes NII deterministically
+- negative shock changes NII deterministically
+- custom scenario endpoint works safely
+- empty dataset handled safely
+
+Deliver:
+- code + tests + summary
+- TODOs for pass-through assumptions, non-maturity deposits, and optionality
+
+
+===============
+
+40C) Interest Rate Shock Scenario Engine
+
+This is the control room for stress testing.
+
+A. Plan prompt (Ask mode)
+
+========================
+
+You are implementing the Interest Rate Shock Scenario Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- interest-rate-risk-engine
+- alm-engine
+- shared packages
+
+Goal:
+Design a scenario engine for interest rate shocks.
+
+Business intent:
+- support standardized interest rate stress scenarios
+- calculate repricing and earnings impact
+- expose scenario results for management and risk review
+
+Responsibilities:
+- define standard shock scenarios
+- run scenarios against aggregated positions
+- persist scenario results if needed
+- expose APIs
+
+Please produce:
+1. scenario model
+2. standard scenario set
+3. result model
+4. API design
+5. persistence strategy
+6. failure handling strategy
+7. test plan
+8. extension points for yield curve and basis shocks
+
+==================B. Build prompt (Code mode)
+
+Implement the Interest Rate Shock Scenario Engine in /services/interest-rate-risk-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review repricing gap and NII sensitivity logic if present.
+4. Keep controllers thin and put logic in application/domain layers.
+5. Use adapters for PostgreSQL if persistence is added.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Provide standardized interest rate shock scenario analysis.
+
+Endpoints:
+- GET /irr/scenarios
+- POST /irr/scenarios/run
+- GET /irr/scenarios/results/:scenarioId optional if persistence is implemented
+
+Standard scenarios:
+- UP_100_BPS
+- DOWN_100_BPS
+- UP_200_BPS
+- DOWN_200_BPS
+- FLATTENER placeholder
+- STEEPENER placeholder
+
+Model:
+- IRRScenario
+  - scenarioId
+  - scenarioName
+  - shockType
+  - shockBps
+  - createdAt
+- IRRScenarioResult
+  - scenarioId
+  - currency
+  - repricingGapImpact placeholder
+  - niiDelta
+  - notes placeholder
+  - calculatedAt
+
+Behavior:
+- run scenario using repricing and NII calculations
+- return deterministic results
+- persistence is optional in phase 1; if persisted, keep it simple and auditable
+- no external market data dependency yet
+- keep scenario framework extensible
+
+Adapters:
+- use internal IRR engine modules
+- PostgreSQL optional:
+  - createScenarioResult(...)
+  - getScenarioResult(...)
+
+Observability:
+- structured logging
+- metrics for scenario execution count and latency
+
+Tests:
+- standard scenarios execute successfully
+- custom scenario request validation works
+- deterministic outputs for known sample data
+- safe handling of empty dataset
+
+Deliver:
+- code + tests + summary
+- TODOs for yield curve shocks, basis risk, and behavioral modeling
+
+
+======================
+
+What this adds conceptually
+
+Before, your platform could answer:
+
+what happened?
+what is the balance?
+what is the loan state?
+what is the liquidity position?
+
+Now it can also answer:
+
+when do assets and liabilities reprice?
+how exposed are we to rate shifts?
+what happens to earnings if rates move up or down?
+where is our short-term funding gap?
+what is the shape of our balance-sheet risk?
+
+That’s the difference between a digital bank platform and a bank management platform.
+
+Recommended next order
+
+Run these next week in this order:
+
+Liquidity Management Service
+Limits Engine
+Treasury Operations Service
+ALM Position Aggregation Engine
+Maturity Bucket Engine
+ALM Metrics Engine
+Repricing Gap Engine
+NII Sensitivity Engine
+Interest Rate Shock Scenario Engine
+
+That order keeps the math from floating in the air without data underneath it.
+
+If you want, next I can turn this into a presentation-ready layered architecture deck narrative or give you the next deeper set:
+FX / multi-currency exposure engine prompts.
+  
+
+  Absolutely. This is the next real step after ALM and IRR.
+
+FX / multi-currency exposure is where your platform starts understanding:
+
+what currencies you hold
+where mismatches exist
+how exchange-rate moves hit liquidity and capital
+where treasury needs to rebalance
+
+I’d build it in 3 parts, same pattern as before:
+
+FX Rate & Currency Reference Service
+FX Position / Exposure Engine
+FX Shock / Revaluation Engine
+
+That gives you a clean ladder from “know the rates” → “know the exposure” → “know the risk”.    

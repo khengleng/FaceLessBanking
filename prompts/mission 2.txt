@@ -1,0 +1,622 @@
+
+Implement the first internal ops dashboard query endpoints across the relevant services for FaceLessBanking.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Review the existing relevant service code.
+5. Keep controllers thin and put logic in application/domain layers.
+6. Add auth placeholder hooks for internal ops access.
+7. Use PostgreSQL adapters for querying.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create read-only internal ops dashboard query endpoints that help operations investigate onboarding, customers, accounts, and payments.
+
+Requirements:
+- Node.js + TypeScript
+- implement read-only endpoints in the service that best owns the data
+- for the initial version, add these endpoints:
+
+Workflow / onboarding:
+- GET /cases/onboarding-review
+- GET /cases/:caseId
+
+Customer service:
+- GET /customers
+- GET /customers/:customerId
+- GET /customers/:customerId/profile
+
+Account service:
+- GET /accounts
+- GET /accounts/:accountId
+
+Payment service:
+- GET /payments
+- GET /payments/:paymentId
+
+Filtering requirements:
+- support basic query filters where reasonable:
+  - case status
+  - customerId
+  - onboardingReference
+  - accountId
+  - payment status
+  - correlationId optional if already stored
+- support pagination using either limit/offset or page/pageSize placeholder consistently
+- use standardized API response envelopes
+
+Safety requirements:
+- read-only only
+- do not expose unsafe secrets or raw documents
+- add internal auth placeholder middleware/hook
+- safe error responses only
+
+Adapter requirements:
+- add PostgreSQL query methods as needed for listing/filtering entities
+- keep query logic organized and explicit
+- avoid deep cross-service synchronous dependencies for now
+- do not add Fineract dependency
+
+Response requirements:
+- include operationally useful fields such as:
+  - ids
+  - statuses
+  - timestamps
+  - correlationId if present
+  - onboardingReference if present
+- keep payloads minimal and safe
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - list queries
+  - detail queries
+  - filtered query usage
+
+Tests required:
+- list endpoints return standardized paginated responses
+- detail endpoints return entity details when found
+- filter parameters work for core cases
+- missing entity returns safe not-found response
+- auth placeholder is applied
+- unsafe fields are not returned
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future aggregated ops dashboard service or search/indexing layer
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+----------------------
+
+You are implementing internal ops dashboard query endpoints for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/services/audit-service.md if present
+- docs/services/workflow-case-management.md if present
+- docs/services/customer-service.md if present
+- docs/services/account-service.md if present
+- docs/services/payment-orchestration.md if present
+- code under the relevant services
+- shared packages under /packages if present
+
+Goal:
+Design the first internal ops dashboard query endpoints that provide read-only operational views.
+
+Business intent:
+- ops teams need searchable views of onboarding, customers, accounts, and payments
+- the dashboard is read-only for now
+- responses must be standardized and safe
+- query performance matters more than deep write logic here
+- no Fineract dependency yet
+
+Expected responsibilities:
+- expose read-only query endpoints for:
+  - onboarding review cases
+  - customers
+  - accounts
+  - payments
+- support basic filtering and pagination
+- include correlation/reference fields for investigation
+- keep the endpoints safe for internal use only with auth placeholder hooks
+
+Please produce:
+1. proposed endpoint design
+2. filtering/pagination model
+3. minimal response shapes
+4. service ownership recommendation
+5. future aggregation strategy
+6. failure handling strategy
+7. test plan
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+-----------------
+
+You are implementing account activation flow for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/account-service.md if present
+- docs/services/customer-service.md if present
+- code under /services/account-service
+- shared packages under /packages if present
+
+Goal:
+Design the first account activation flow for internally created accounts.
+
+Business intent:
+- accounts are initially created in a pre-active state
+- activation should be explicit, auditable, and idempotent
+- activation should prepare the account for balance snapshot creation and future money movement
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- activate newly created accounts
+- support event-driven activation after account.created.v1 or manual activation endpoint
+- enforce valid state transitions
+- emit account.activated.v1
+- avoid duplicate activation processing
+
+Please produce:
+1. proposed folder/files to create or update
+2. account state machine
+3. event-to-activation mapping rules
+4. manual activation API design if useful
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. future extension points for product eligibility and core banking sync
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+-----------------------
+
+
+
+Implement the first account activation flow in /services/account-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing account service code.
+6. Review account.created.v1 contract if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create a safe, auditable, idempotent account activation flow.
+
+Requirements:
+- Node.js + TypeScript
+- implement:
+  - POST /accounts/:accountId/activate
+- implement Kafka consumer logic for:
+  - account.created.v1
+- support two activation modes:
+  - event-driven activation from account.created.v1
+  - manual activation endpoint for internal/admin use
+- emit account.activated.v1 when activation succeeds
+- ensure activation is idempotent
+- do not integrate Fineract yet
+
+Account state requirements:
+- supported statuses:
+  - PENDING_ACTIVATION
+  - ACTIVE
+  - SUSPENDED placeholder
+  - CLOSED placeholder
+- valid activation rule:
+  - PENDING_ACTIVATION -> ACTIVE
+- invalid transitions must be blocked safely
+- repeated activation should not duplicate state mutation or event emission
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getAccountById(...)
+  - updateAccountStatus(...)
+  - hasProcessedActivationEvent(...)
+  - markActivationEventProcessed(...)
+- Kafka adapter additions:
+  - consume account.created.v1
+  - publish account.activated.v1
+
+Behavior rules:
+- when account.created.v1 is consumed:
+  - load account
+  - if status is PENDING_ACTIVATION, activate it
+  - if already ACTIVE, skip safely
+- POST /accounts/:accountId/activate:
+  - validate accountId
+  - load account
+  - activate only if valid
+  - return standardized API response
+  - publish account.activated.v1 only on first successful activation
+- add internal auth placeholder for manual activation route
+
+Event requirements:
+- publish account.activated.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId
+  - accountId
+  - customerId
+  - oldStatus
+  - newStatus
+  - sourceEventId optional
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - accounts activated
+  - duplicate activations skipped
+  - invalid activation attempts blocked
+
+Tests required:
+- account.created.v1 activates PENDING_ACTIVATION account and emits account.activated.v1
+- duplicate activation event does not activate twice
+- already ACTIVE account is skipped safely
+- manual activation endpoint activates valid account
+- invalid transition is blocked safely
+- malformed event is handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future product checks and Fineract integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+---------------------------
+
+
+You are implementing default balance snapshot creation for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/balance-service.md if present
+- docs/services/account-service.md if present
+- code under /services/balance-service
+- shared packages under /packages if present
+
+Goal:
+Design the first default balance snapshot creation flow that reacts to account.activated.v1.
+
+Business intent:
+- every active account should have a balance snapshot available for high-TPS reads
+- initial balance snapshot should be zeroed and cacheable
+- snapshot creation must be idempotent
+- the flow must update both projection storage and Redis cache
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- consume account.activated.v1
+- create initial BalanceSnapshot if missing
+- write snapshot to PostgreSQL projection store
+- warm Redis cache
+- avoid duplicate snapshot creation
+
+Please produce:
+1. proposed folder/files to create or update
+2. initial snapshot model and defaults
+3. idempotency strategy
+4. Redis warming strategy
+5. failure handling strategy
+6. test plan
+7. future extension points for product-specific balance initialization and core-banking sync
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+-----------------------------
+
+
+Implement the first default balance snapshot creation flow in /services/balance-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing balance service code.
+6. Review account.activated.v1 contract if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL, Redis, and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create the initial zero-balance snapshot when an account becomes active.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic for:
+  - account.activated.v1
+- create BalanceSnapshot if missing
+- persist BalanceSnapshot to PostgreSQL projection store
+- warm Redis cache after creation
+- ensure idempotent processing
+- do not integrate Fineract yet
+
+BalanceSnapshot requirements:
+- accountId
+- availableBalance = 0
+- ledgerBalance = 0
+- currency placeholder or value from event if available
+- version = 1 or initial placeholder
+- updatedAt
+- optional sourceEventId metadata
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getBalanceSnapshot(accountId)
+  - createBalanceSnapshot(snapshot)
+  - hasProcessedSnapshotInitEvent(...)
+  - markSnapshotInitEventProcessed(...)
+- Redis adapter additions:
+  - setBalanceSnapshot(snapshot, ttl)
+  - getBalanceSnapshot(accountId)
+- Kafka adapter additions:
+  - consume account.activated.v1
+
+Behavior rules:
+- on account.activated.v1:
+  - validate event envelope
+  - if no balance snapshot exists, create zero snapshot
+  - if snapshot already exists, skip safely
+  - warm Redis cache after successful creation
+- duplicate source event must not create duplicate snapshot
+- same account should not get multiple initial snapshots
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - default balance snapshots created
+  - duplicate snapshot init events skipped
+  - Redis cache warm success/failure
+
+Tests required:
+- account.activated.v1 creates zero balance snapshot
+- Redis cache is warmed after snapshot creation
+- duplicate activation event does not create duplicate snapshot
+- existing snapshot is skipped safely
+- malformed event is handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future product-specific initialization and Fineract balance sync
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+----------------------
+You are implementing the first search/indexing service for ops investigations in FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/audit-service.md if present
+- docs/services/workflow-case-management.md if present
+- docs/services/customer-service.md if present
+- docs/services/account-service.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first search/indexing service for internal operations investigations.
+
+Business intent:
+- ops teams need one place to search customers, accounts, payments, onboarding cases, and audit references
+- the first version can be simple and PostgreSQL-backed
+- indexing should be event-driven where possible
+- search must be safe and internal-only
+- no external search engine dependency yet unless clearly abstracted
+
+Expected responsibilities:
+- maintain a searchable investigation index
+- ingest selected lifecycle events
+- expose read-only search endpoints
+- support filtering by key operational identifiers
+
+Please produce:
+1. proposed service structure
+2. index record model
+3. event ingestion strategy
+4. search endpoint design
+5. safe-field rules
+6. failure handling strategy
+7. test plan
+8. future extension points for Elasticsearch/OpenSearch or other engines
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+---------------------
+
+Implement the first search/indexing service for ops investigations in /services/search-indexing-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review existing relevant service/event contracts if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add auth placeholder hooks for internal ops access.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first internal search/indexing service for operational investigations.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /search
+  - GET /search/:entityType/:entityId optional detail lookup if useful
+- implement Kafka consumer logic for selected events:
+  - customer.created.v1
+  - customer.profile.enriched.v1
+  - account.created.v1
+  - account.activated.v1
+  - payment.initiated.v1
+  - payment.status.updated.v1
+  - case.created.v1
+  - case.action.recorded.v1
+- validate event envelopes
+- index safe operational fields into PostgreSQL-backed search table(s)
+- ensure idempotent indexing
+- do not use external search engine yet
+- do not expose unsafe secrets or raw documents
+
+Index model requirements:
+- InvestigationIndexRecord
+  - indexId
+  - entityType
+  - entityId
+  - correlationId optional
+  - customerId optional
+  - accountId optional
+  - paymentId optional
+  - caseId optional
+  - status optional
+  - searchableText or normalized tokens
+  - sourceEventId
+  - createdAt
+  - updatedAt
+- keep fields safe and operationally useful
+- do not store raw sensitive documents or secrets
+
+Search endpoint requirements:
+- GET /search
+- support query parameters such as:
+  - q
+  - entityType
+  - customerId
+  - accountId
+  - paymentId
+  - caseId
+  - status
+  - correlationId
+  - limit/offset or page/pageSize placeholder
+- return standardized API response envelope
+- internal auth placeholder only
+- read-only only
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - upsertIndexRecord(...)
+  - hasProcessedIndexEvent(...)
+  - markIndexEventProcessed(...)
+  - searchIndex(...)
+  - getIndexRecordByEntity(...)
+- Kafka adapter additions:
+  - consume selected lifecycle events
+
+Behavior rules:
+- each supported event should map to a safe index record update
+- duplicate sourceEventId must not re-index unsafely
+- keep event-to-index mapping isolated and extensible
+- allow multiple records for an entity over time if needed, or implement latest-state indexing consistently
+- if exact field availability differs by event, use safe placeholders and TODOs rather than inventing fragile assumptions
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - index records created/updated
+  - duplicate index events skipped
+  - search queries executed
+
+Tests required:
+- selected lifecycle events create/update index records
+- duplicate source event does not create duplicate index changes unsafely
+- GET /search filters by entityType and ids
+- GET /search supports free-text placeholder query safely
+- auth placeholder is applied
+- unsafe fields are not indexed or returned
+- malformed event is handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future OpenSearch/Elasticsearch integration and richer relevance ranking
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+Best run order
+
+Run them in this order:
+
+Loan Eligibility Rules Integration
+Loan Approval Workflow
+Loan Account Creation After Approval
+
+That gives you a clean lending path:
+application → eligibility → approval → internal loan account
+
+If you want, next I can give you the next three prompts for:
+
+loan disbursement flow
+repayment initiation flow
+delinquency / collections skeleton

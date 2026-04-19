@@ -1,0 +1,90 @@
+Implement the first real customer creation flow in customer-service.
+
+Requirements:
+- validate payload
+- enforce idempotency
+- persist customer record in PostgreSQL
+- emit customer.created.v1
+- add audit record
+- no Fineract integration yet
+- return standardized API response
+
+Tests:
+- happy path
+- invalid payload
+- duplicate idempotency key
+- audit record created
+- event emitted
+
+
+
+
+-------------------------
+
+Implement the first real Sumsub onboarding session flow in ekyc-orchestration.
+
+Requirements:
+- create internal verification session
+- map internalCustomerId to provider session/applicant placeholder
+- create Sumsub adapter interface and session creation method
+- persist verification state
+- emit ekyc.session.created.v1
+- add webhook endpoint placeholder with signature verification hook
+- do not create customer/account in Fineract yet
+
+Tests:
+- create session happy path
+- invalid payload
+- get session status
+- webhook payload validation placeholder
+
+---------------------------
+
+Implement the first real internal payment initiation flow in payment-orchestration.
+
+Requirements:
+- validate source and destination references
+- enforce idempotency
+- persist payment record
+- emit payment.initiated.v1
+- add audit record
+- no real Fineract integration yet
+- return pending or accepted status
+
+Tests:
+- happy path
+- duplicate request
+- invalid payload
+- event emitted
+- audit created
+
+
+--------------------------
+
+Implement the first real loan application flow in loan-orchestration.
+
+Requirements:
+- validate payload
+- enforce idempotency
+- persist loan application state
+- emit loan.created.v1 or loan.application.created.v1
+- add audit record
+- integrate rules-engine placeholder for eligibility call
+- no real Fineract integration yet
+
+Tests:
+- happy path
+- invalid payload
+- rule rejection placeholder
+- duplicate request
+
+-------------------------
+
+Implement the first real workflow case creation flow in workflow-case-management.
+
+Requirements:
+- create case for onboarding-review and loan-review
+- persist case state
+- emit case.created.v1
+- support first case action
+- standardized response and status transitions

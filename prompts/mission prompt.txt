@@ -1,0 +1,969 @@
+
+building the skeleton fast
+
+1. API Gateway
+Implement the initial API Gateway service in /services/api-gateway.
+
+Goal:
+Create a lightweight API Gateway / BFF for FaceLessBanking that routes requests to backend services and exposes a health endpoint.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/adapters
+  - src/tests
+- implement:
+  - GET /health
+  - gateway route placeholders for:
+    - /customers
+    - /accounts
+    - /loans
+    - /payments
+    - /ekyc
+    - /support
+- include request correlation ID middleware
+- include auth middleware placeholder for Keycloak token validation
+- include OpenTelemetry bootstrap
+- include Dockerfile
+- include package.json scripts for dev, build, lint, test, typecheck
+
+Do not implement real service calls yet.
+Use adapter stubs and route placeholders.
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+ 
+2. Customer Service
+Implement the initial Customer Service in /services/customer-service.
+
+Goal:
+Create the service skeleton and first customer APIs for profile creation and retrieval.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /customers
+  - GET /customers/:customerId
+- POST /customers should:
+  - validate request
+  - enforce idempotency placeholder
+  - create audit record placeholder
+  - emit customer.created event placeholder
+- define DTOs and domain model for Customer
+- create PostgreSQL adapter placeholder
+- create Redis adapter placeholder
+- create Kafka producer placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Keep implementation thin and safe.
+Do not connect to Fineract yet unless clearly needed through an adapter stub.
+
+Tests required:
+- health endpoint
+- create customer happy path
+- invalid payload
+- duplicate idempotency placeholder behavior
+- get customer by id
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+3. Account Service
+Implement the initial Account Service in /services/account-service.
+
+Goal:
+Create APIs for account creation, retrieval, and basic balance inquiry using a Fineract adapter stub.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /accounts
+  - GET /accounts/:accountId
+  - GET /accounts/:accountId/balance
+- POST /accounts should:
+  - validate request
+  - enforce idempotency placeholder
+  - call Fineract adapter stub only through application service
+  - create audit record placeholder
+  - emit account.created event placeholder
+- create:
+  - Account domain model
+  - Fineract adapter interface + stub
+  - PostgreSQL adapter placeholder
+  - Redis adapter placeholder
+  - Kafka producer placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Rules:
+- controllers must stay thin
+- no direct Fineract logic in controllers
+- no direct Kafka logic in controllers
+
+Tests required:
+- create account happy path
+- invalid payload
+- get account
+- get balance
+- duplicate idempotency placeholder behavior
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+4. Loan Orchestration Service
+Implement the initial Loan Orchestration Service in /services/loan-orchestration.
+
+Goal:
+Expose thin APIs for loan application, loan retrieval, and repayment initiation.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /loans
+  - GET /loans/:loanId
+  - POST /loans/:loanId/repayments
+- loan application should:
+  - validate request
+  - enforce idempotency placeholder
+  - call Fineract adapter stub
+  - create audit record placeholder
+  - emit loan.created event placeholder
+- repayment initiation should:
+  - validate request
+  - enforce idempotency placeholder
+  - call Fineract adapter stub
+  - emit loan.repayment.initiated event placeholder
+- create:
+  - Loan domain model
+  - Repayment domain model
+  - Fineract adapter interface + stub
+  - Kafka producer placeholder
+  - PostgreSQL adapter placeholder
+  - Redis adapter placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create loan happy path
+- invalid payload
+- get loan by id
+- repayment initiation happy path
+- duplicate idempotency placeholder behavior
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+5. Payment Orchestration Service
+Implement the initial Payment Orchestration Service in /services/payment-orchestration.
+
+Goal:
+Expose thin APIs for internal transfer initiation, payment status query, and beneficiary placeholder support.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /payments/internal-transfer
+  - GET /payments/:paymentId
+  - POST /beneficiaries
+- internal transfer should:
+  - validate request
+  - enforce idempotency placeholder
+  - call account/fineract adapter stub through application service
+  - create audit record placeholder
+  - emit payment.initiated event placeholder
+- create:
+  - Payment domain model
+  - Beneficiary domain model
+  - Payment adapter interfaces
+  - Fineract adapter interface + stub
+  - Kafka producer placeholder
+  - PostgreSQL adapter placeholder
+  - Redis adapter placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- health endpoint
+- internal transfer happy path
+- invalid payload
+- get payment status
+- create beneficiary
+- duplicate idempotency placeholder behavior
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+6. eKYC Orchestration Service
+Implement the initial eKYC Orchestration Service in /services/ekyc-orchestration.
+
+Goal:
+Create a thin orchestration service for identity verification workflow, document submission, and status retrieval.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /ekyc/sessions
+  - POST /ekyc/sessions/:sessionId/documents
+  - POST /ekyc/sessions/:sessionId/liveness
+  - GET /ekyc/sessions/:sessionId
+- workflow should:
+  - validate input
+  - create workflow state placeholder
+  - call provider adapter stubs for OCR / liveness / AML
+  - emit ekyc.session.created and ekyc.status.updated event placeholders
+- create:
+  - EkycSession domain model
+  - provider adapter interfaces + stubs
+  - document storage adapter placeholder
+  - PostgreSQL adapter placeholder
+  - Kafka producer placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create session
+- upload documents
+- liveness submission
+- get ekyc session status
+- invalid payloads
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+7. Notification Service
+Implement the initial Notification Service in /services/notification-service.
+
+Goal:
+Create a service to accept notification requests and expose delivery status placeholders for SMS, email, and push.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /notifications
+  - GET /notifications/:notificationId
+- support channels:
+  - sms
+  - email
+  - push
+- use provider adapter stubs only
+- persist notification log placeholder
+- emit notification.requested event placeholder
+- create:
+  - Notification domain model
+  - provider adapter interfaces + stubs
+  - PostgreSQL adapter placeholder
+  - Kafka producer placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- notification creation
+- invalid channel
+- get notification by id
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+8. Audit Service
+Implement the initial Audit Service in /services/audit-service.
+
+Goal:
+Create a service to store and query audit records for banking actions.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/tests
+- implement:
+  - GET /health
+  - POST /audit/events
+  - GET /audit/events/:eventId
+  - GET /audit/events?entityType=&entityId=
+- create:
+  - AuditEvent domain model
+  - PostgreSQL adapter placeholder
+- include support for:
+  - eventType
+  - correlationId
+  - entityType
+  - entityId
+  - payload
+  - timestamp
+  - actor
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Rules:
+- audit records are append-oriented
+- do not expose unsafe internal fields
+- design the domain model for future ledger anchor fields
+
+Tests required:
+- create audit event
+- get audit by id
+- query audit by entity
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+9. Ledger Service
+Implement the initial Ledger Service in /services/ledger-service.
+
+Goal:
+Create a thin ledger-facing service that accepts anchor requests and exposes proof/status placeholders.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /ledger/anchors
+  - GET /ledger/anchors/:anchorId
+  - GET /ledger/proofs/:eventId
+- create:
+  - LedgerAnchor domain model
+  - LedgerProof domain model
+  - blockchain adapter interface + stub
+  - PostgreSQL adapter placeholder
+  - Kafka consumer/producer placeholder
+- POST /ledger/anchors should:
+  - validate request
+  - store anchor request placeholder
+  - call blockchain adapter stub
+  - emit ledger.anchor.requested event placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create anchor request
+- get anchor status
+- get proof placeholder
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+10. Reconciliation Service
+Implement the initial Reconciliation Service in /services/reconciliation-service.
+
+Goal:
+Create a service to track reconciliation jobs and compare source records against expected event or ledger state.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/tests
+- implement:
+  - GET /health
+  - POST /reconciliation/jobs
+  - GET /reconciliation/jobs/:jobId
+  - POST /reconciliation/jobs/:jobId/run
+- create:
+  - ReconciliationJob domain model
+  - adapter placeholders for:
+    - PostgreSQL
+    - Kafka
+    - Fineract
+    - Ledger
+- job should support placeholder types:
+  - payments
+  - loans
+  - accounts
+  - ledger
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create job
+- run job placeholder
+- get job status
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+11. AI Orchestration Service
+Implement the initial AI Orchestration Service in /services/ai-orchestration.
+
+Goal:
+Create a controlled AI service for banking-safe assistant requests, with guardrails and provider adapters.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/tests
+- implement:
+  - GET /health
+  - POST /ai/chat
+  - POST /ai/summarize
+  - POST /ai/classify
+- create:
+  - Guardrail service placeholder
+  - OpenAI adapter interface + stub
+  - prompt policy placeholder
+  - audit logging placeholder
+- rules:
+  - no direct money movement
+  - no raw PII logging
+  - all AI requests must pass through guardrail layer
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- chat request happy path
+- summarize request happy path
+- invalid payload
+- blocked unsafe request placeholder
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+12. Support / CRM Service
+Implement the initial Support / CRM Service in /services/support-crm-service.
+
+Goal:
+Create a thin service for customer tickets, conversation tracking, and support case status.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /support/tickets
+  - GET /support/tickets/:ticketId
+  - POST /support/tickets/:ticketId/messages
+- create:
+  - SupportTicket domain model
+  - TicketMessage domain model
+  - PostgreSQL adapter placeholder
+  - Kafka producer placeholder
+- emit placeholders:
+  - support.ticket.created
+  - support.message.added
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create ticket
+- get ticket
+- add message
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+13. Rules / Decision Engine
+Implement the initial Rules / Decision Engine service in /services/rules-engine.
+
+Goal:
+Create a basic rules service that evaluates simple banking decisions using configurable rule placeholders.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/tests
+- implement:
+  - GET /health
+  - POST /rules/evaluate
+  - POST /rules/definitions
+  - GET /rules/definitions/:ruleId
+- support simple placeholder rule categories:
+  - transfer-limit
+  - ekyc-eligibility
+  - loan-eligibility
+  - notification-routing
+- create:
+  - RuleDefinition domain model
+  - RuleEvaluation domain model
+  - PostgreSQL adapter placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create rule definition
+- evaluate rule
+- get rule definition
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+14. Workflow / Case Management Service
+Implement the initial Workflow / Case Management service in /services/workflow-case-management.
+
+Goal:
+Create a thin workflow service for approval steps, review queues, and case state transitions.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /cases
+  - GET /cases/:caseId
+  - POST /cases/:caseId/actions
+- support placeholder case types:
+  - onboarding-review
+  - loan-review
+  - compliance-review
+  - dispute-review
+- create:
+  - Case domain model
+  - CaseAction domain model
+  - PostgreSQL adapter placeholder
+  - Kafka producer placeholder
+- emit:
+  - case.created
+  - case.action.recorded
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- create case
+- get case
+- post case action
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+
+
+ 
+15. Fraud / Risk Engine
+Implement the initial Fraud / Risk Engine service in /services/fraud-risk-engine.
+
+Goal:
+Create a basic fraud/risk service for rule-based scoring and alert creation.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- folders:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- implement:
+  - GET /health
+  - POST /risk/score
+  - POST /risk/alerts
+  - GET /risk/alerts/:alertId
+- support placeholder scoring for:
+  - transfer risk
+  - onboarding risk
+  - loan risk
+- create:
+  - RiskScore domain model
+  - RiskAlert domain model
+  - PostgreSQL adapter placeholder
+  - Kafka producer placeholder
+- include OpenTelemetry bootstrap
+- include Dockerfile
+
+Tests required:
+- score request
+- create alert
+- get alert
+- invalid payload
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read the relevant file in docs/services if it exists.
+3. Follow the repo structure and delivery rules exactly.
+4. Make the smallest safe change that satisfies the task.
+5. Keep controllers thin and put business logic in application/domain layers.
+6. Use adapters for external systems.
+7. Add tests for implemented behavior.
+8. Run lint, typecheck, and relevant tests before finishing.
+
+Deliverable:
+- code changes
+- tests
+- short summary of files changed
+- assumptions or TODOs that still need domain review
+

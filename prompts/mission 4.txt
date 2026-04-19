@@ -1,0 +1,863 @@
+Absolutely. Here are the next three Codex prompts for tomorrow:
+
+Notification Delivery Worker
+Reconciliation Job Framework
+Maker-Checker Policy Layer
+
+These push the platform from “events and workflows exist” into “operations and controls actually work.”
+
+
+----------------30) Notification Delivery Worker
+
+This is the worker that takes notification.requested.v1 and turns it into actual delivery attempts.
+
+A. Plan prompt (Ask mode)
+
+You are implementing the notification delivery worker for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/notification-service.md if present
+- code under /services/notification-service
+- shared packages under /packages if present
+
+Goal:
+Design the first notification delivery worker that processes notification.requested.v1 events and performs provider delivery through placeholder adapters.
+
+Business intent:
+- notification generation and notification delivery must be decoupled
+- delivery attempts must be auditable and retryable
+- the first version should support SMS, email, and push as provider placeholders
+- delivery processing must be idempotent
+- provider failures must not break upstream banking flows
+
+Expected responsibilities:
+- consume notification.requested.v1
+- load notification request
+- select provider adapter based on channel
+- attempt delivery
+- update delivery status
+- emit notification.sent.v1 or notification.failed.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. delivery worker design
+3. provider adapter design
+4. delivery state model
+5. retry/idempotency strategy
+6. failure handling strategy
+7. test plan
+8. future extension points for templates, localization, and delivery analytics
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+==========================
+
+B. Build prompt (Code mode)
+
+=========================
+
+Implement the first notification delivery worker in /services/notification-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing notification service code.
+6. Review notification.requested.v1 contract if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first delivery worker that consumes notification.requested.v1 and performs placeholder provider delivery.
+
+Requirements:
+- Node.js + TypeScript
+- implement Kafka consumer logic for:
+  - notification.requested.v1
+- load notification request record
+- attempt delivery using channel-based provider adapters
+- update status in PostgreSQL
+- emit:
+  - notification.sent.v1
+  - notification.failed.v1
+- ensure idempotent delivery handling
+- do not integrate real providers yet unless repo already has safe placeholders
+- do not block upstream services
+
+Delivery model requirements:
+- NotificationRequestStatus values:
+  - REQUESTED
+  - QUEUED placeholder
+  - SENT
+  - FAILED
+- maintain deliveryAttemptCount placeholder
+- support channels:
+  - sms
+  - email
+  - push
+- provider adapters should be isolated and swappable
+
+Adapter requirements:
+- PostgreSQL:
+  - getNotificationById(...)
+  - updateNotificationStatus(...)
+  - incrementDeliveryAttempt(...)
+  - hasProcessedNotificationDeliveryEvent(...)
+  - markNotificationDeliveryEventProcessed(...)
+- Kafka:
+  - consume notification.requested.v1
+  - publish notification.sent.v1
+  - publish notification.failed.v1
+- provider adapters:
+  - sendSms(...)
+  - sendEmail(...)
+  - sendPush(...)
+  - all as placeholder implementations
+
+Behavior rules:
+- duplicate source event must not trigger duplicate delivery
+- malformed event must be handled safely
+- unknown channel must fail safely
+- delivery failure must update status to FAILED and emit failed event
+- successful delivery must update status to SENT and emit sent event
+- keep retry strategy simple for now:
+  - single attempt only with clear TODOs for retry queue
+
+Event requirements:
+- publish notification.sent.v1 and notification.failed.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - notificationId
+  - sourceEventId
+  - channel
+  - status
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - notifications delivered
+  - notifications failed
+  - duplicate delivery events skipped
+  - per-channel delivery counts
+
+Tests required:
+- notification.requested.v1 triggers delivery attempt
+- sms/email/push placeholder paths work
+- successful delivery updates status and emits notification.sent.v1
+- failed delivery updates status and emits notification.failed.v1
+- duplicate source event does not deliver twice
+- malformed event is handled safely
+- unknown channel fails safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for retry queue, provider integrations, and template rendering
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+========================================
+
+31) Reconciliation Job Framework
+
+This is the framework for comparing records across services and catching mismatches before they become disasters.
+
+A. Plan prompt (Ask mode)
+
+=====================
+
+You are implementing the reconciliation job framework for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/reconciliation-service.md if present
+- docs/services/payment-orchestration.md if present
+- docs/services/account-service.md if present
+- docs/services/loan-orchestration.md if present
+- code under /services/reconciliation-service
+- shared packages under /packages if present
+
+Goal:
+Design the first reconciliation job framework for the platform.
+
+Business intent:
+- the platform must be able to compare expected and actual records across domains
+- the first version should support a generic reconciliation job framework with specific job types
+- reconciliation runs must be auditable, restartable, and idempotent
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- create reconciliation jobs
+- run reconciliation job handlers
+- compare selected source/target datasets
+- persist reconciliation results
+- emit reconciliation.job.completed.v1 or mismatch events
+
+Please produce:
+1. proposed folder/files to create or update
+2. reconciliation job framework design
+3. supported initial reconciliation job types
+4. mismatch model design
+5. idempotency/restart strategy
+6. failure handling strategy
+7. test plan
+8. extension points for future core-banking and ledger reconciliation
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+============================B. Build prompt (Code mode)
+
+Implement the first reconciliation job framework in /services/reconciliation-service.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing reconciliation service code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create a generic reconciliation job framework with initial supported job types.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - POST /reconciliation/jobs
+  - GET /reconciliation/jobs/:jobId
+  - POST /reconciliation/jobs/:jobId/run
+- support initial job types:
+  - PAYMENT_STATUS_RECON
+  - BALANCE_SNAPSHOT_RECON
+  - LOAN_STATUS_RECON placeholder
+- persist reconciliation jobs and mismatch records
+- emit:
+  - reconciliation.job.started.v1
+  - reconciliation.job.completed.v1
+  - reconciliation.mismatch.detected.v1 placeholder if mismatches are found
+- ensure idempotent run behavior per job execution
+- do not integrate Fineract yet
+
+Domain model requirements:
+- ReconciliationJob
+  - jobId
+  - jobType
+  - status
+  - createdAt
+  - startedAt optional
+  - completedAt optional
+- ReconciliationMismatch
+  - mismatchId
+  - jobId
+  - entityType
+  - entityId
+  - expectedValue
+  - actualValue
+  - mismatchType
+  - createdAt
+- statuses:
+  - PENDING
+  - RUNNING
+  - COMPLETED
+  - FAILED
+
+Initial framework rules:
+- PAYMENT_STATUS_RECON:
+  - compare payment records with expected lifecycle state rules placeholder
+- BALANCE_SNAPSHOT_RECON:
+  - compare balance snapshots against indexed or event-derived expectations placeholder
+- LOAN_STATUS_RECON:
+  - compare loan application/account states against expected workflow states placeholder
+- keep each job handler isolated and swappable
+
+Adapter requirements:
+- PostgreSQL:
+  - createReconciliationJob(...)
+  - getReconciliationJob(...)
+  - updateReconciliationJobStatus(...)
+  - createReconciliationMismatch(...)
+  - listReconciliationMismatchesByJob(...)
+  - hasProcessedReconciliationRun(...)
+  - markReconciliationRunProcessed(...)
+- Kafka:
+  - publish reconciliation.job.started.v1
+  - publish reconciliation.job.completed.v1
+  - publish reconciliation.mismatch.detected.v1
+
+Behavior rules:
+- only one active execution per job at a time
+- duplicate run requests must not create inconsistent duplicate executions
+- if handler fails, mark job FAILED safely
+- if mismatches exist, record them and still allow COMPLETED unless handler itself fails
+- GET /reconciliation/jobs/:jobId should return job plus mismatch summary
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - reconciliation jobs started
+  - reconciliation jobs completed
+  - reconciliation jobs failed
+  - mismatch counts by job type
+
+Tests required:
+- create reconciliation job
+- run job updates status correctly
+- mismatches are persisted when detected
+- duplicate run request handled safely
+- failing job marks status FAILED
+- completion events emitted
+- GET job returns job and mismatch summary
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future Fineract, ledger, and external rail reconciliation
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+=========================
+32) Maker-Checker Policy Layer
+
+This adds proper dual-control discipline so sensitive actions don’t just happen because an API was called.
+
+A. Plan prompt (Ask mode)
+
+
+========================
+
+You are implementing the maker-checker policy layer for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/workflow-case-management.md if present
+- docs/services/rules-engine.md if present
+- code under /services/workflow-case-management
+- code under /services/rules-engine if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first maker-checker policy layer for sensitive platform actions.
+
+Business intent:
+- some actions must require review/approval by a second actor
+- the first version should define policy rules and enforcement hooks
+- policy decisions must be auditable and workflow-driven
+- do not integrate external IAM/role engines deeply yet beyond placeholders
+
+Expected responsibilities:
+- define maker-checker policy rules
+- evaluate whether an action requires dual control
+- create workflow review case when required
+- expose policy evaluation endpoint or internal adapter
+- emit makerchecker.policy.applied.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. maker-checker policy model
+3. initial supported sensitive actions
+4. evaluation and enforcement design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for role-aware approval and segregation-of-duties
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+==============================B. Build prompt (Code mode)
+
+Implement the first maker-checker policy layer in /services/rules-engine and /services/workflow-case-management, or another clearly justified location consistent with the repo structure.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing rules-engine and workflow/case-management code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first maker-checker policy layer for sensitive actions.
+
+Requirements:
+- Node.js + TypeScript
+- implement:
+  - POST /maker-checker/evaluate
+  - POST /maker-checker/policies
+  - GET /maker-checker/policies/:policyId
+- evaluate whether a requested action requires maker-checker
+- if policy applies:
+  - return decision that approval is required
+  - create or request workflow review case
+  - emit makerchecker.policy.applied.v1
+- if policy does not apply:
+  - return direct-allowed decision
+- do not implement deep IAM role logic yet beyond placeholders
+- do not integrate Fineract yet
+
+Initial supported sensitive actions:
+- MANUAL_ACCOUNT_ACTIVATION
+- LOAN_APPROVAL
+- MANUAL_PAYMENT_RELEASE placeholder
+- MANUAL_FEE_WAIVER placeholder
+- keep action mapping isolated and extensible
+
+Domain model requirements:
+- MakerCheckerPolicy
+  - policyId
+  - actionType
+  - enabled
+  - thresholdAmount optional
+  - caseType
+  - createdAt
+- MakerCheckerDecision
+  - decisionId
+  - actionType
+  - requiresApproval
+  - policyId optional
+  - caseId optional
+  - evaluatedAt
+- keep model minimal but auditable
+
+Adapter requirements:
+- PostgreSQL:
+  - createMakerCheckerPolicy(...)
+  - getMakerCheckerPolicyById(...)
+  - findApplicableMakerCheckerPolicy(...)
+  - createMakerCheckerDecision(...)
+  - hasProcessedMakerCheckerRequest(...) placeholder if needed
+- Workflow adapter:
+  - createReviewCase(...)
+- Kafka:
+  - publish makerchecker.policy.applied.v1
+
+Behavior rules:
+- evaluate based on actionType and optional thresholdAmount
+- if thresholdAmount exists, apply only when action amount exceeds threshold
+- if policy applies:
+  - create workflow review case using appropriate caseType
+  - include source entity reference if available
+- duplicate evaluation requests should be handled safely
+- keep policy evaluation deterministic and explicit
+
+Event requirements:
+- publish makerchecker.policy.applied.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - actionType
+  - policyId
+  - requiresApproval
+  - caseId optional
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - maker-checker evaluations
+  - policies applied
+  - review cases created by policy
+  - direct-allowed decisions
+
+Tests required:
+- create maker-checker policy
+- get policy by id
+- evaluate action with no matching policy returns direct-allowed
+- evaluate action with matching policy returns requiresApproval and creates case
+- threshold-based policy behaves correctly
+- event emitted when policy applied
+- malformed request handled safely
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for role-aware approvals, segregation-of-duties, and stronger auth integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+=============================Best order to run these tomorrow
+
+Run them in this order:
+
+Notification Delivery Worker
+Reconciliation Job Framework
+Maker-Checker Policy Layer
+
+That order works because:
+
+notifications complete the customer-facing async loop
+reconciliation strengthens operational control
+maker-checker strengthens governance and approvals
+
+If you want after that, the next logical trio is:
+
+dispute / case escalation flow
+charge/fee collection posting
+ops dashboard aggregation service
+
+==================
+
+You’re officially entering bank-grade operations territory now. These next three are what separate a fintech app from a system regulators won’t laugh at.
+
+Here are your next 3 Codex prompts:
+
+33) Dispute / Case Escalation Flow
+
+This is where “customer says something is wrong” becomes a structured process.
+
+======================================
+
+You are implementing dispute / case escalation flow for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/workflow-case-management.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services/workflow-case-management
+- shared packages under /packages if present
+
+Goal:
+Design the first dispute and case escalation flow.
+
+Business intent:
+- customers or ops must be able to raise disputes on transactions
+- disputes must be tracked, auditable, and workflow-driven
+- escalation should support multi-stage handling
+- do not integrate external dispute systems yet
+
+Expected responsibilities:
+- create dispute cases linked to entities (payment, account, loan)
+- support escalation states
+- integrate with workflow system
+- emit dispute.created.v1 and dispute.updated.v1
+
+Please produce:
+1. dispute model design
+2. workflow state model
+3. escalation rules
+4. API design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for chargeback integration and external rails
+
+=======================================B. Build prompt (Code mode)
+
+Implement dispute / case escalation flow in /services/workflow-case-management.
+
+Goal:
+Create dispute handling with escalation support.
+
+Endpoints:
+- POST /disputes
+- GET /disputes/:disputeId
+- POST /disputes/:disputeId/escalate
+- POST /disputes/:disputeId/resolve
+
+Requirements:
+- create dispute linked to:
+  - paymentId OR accountId OR loanAccountId
+- persist dispute record
+- create workflow case (caseType = DISPUTE)
+- support states:
+  - OPEN
+  - UNDER_REVIEW
+  - ESCALATED
+  - RESOLVED
+  - REJECTED
+- emit:
+  - dispute.created.v1
+  - dispute.updated.v1
+
+Adapters:
+- PostgreSQL:
+  - createDispute(...)
+  - updateDisputeStatus(...)
+  - getDisputeById(...)
+- Kafka:
+  - publish dispute.created.v1
+  - publish dispute.updated.v1
+
+Rules:
+- escalation only from OPEN or UNDER_REVIEW
+- resolve only from valid states
+- duplicate requests handled safely
+
+Tests:
+- create dispute
+- escalate dispute
+- resolve dispute
+- invalid transitions blocked
+- events emitted correctly
+
+===================
+
+34) Charge / Fee Collection Posting
+
+You already assess fees. Now you actually collect them (this is where revenue lives).
+
+==================================A. Plan prompt (Ask mode)
+
+You are implementing fee/charge collection posting for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- fee-charge-engine
+- payment-orchestration
+- accounting-service
+
+Goal:
+Design fee collection flow after fee.assessed.v1.
+
+Business intent:
+- assessed fees must be collected from customer accounts
+- collection must go through payment flow
+- accounting entries must be generated
+- do not integrate Fineract yet
+
+Responsibilities:
+- consume fee.assessed.v1
+- initiate fee collection payment
+- update fee status
+- emit fee.collected.v1 or fee.failed.v1
+
+Produce:
+- flow design
+- state model
+- idempotency strategy
+- failure handling
+- test plan
+
+=========================B. Build prompt (Code mode)
+
+Implement fee collection posting in /services/fee-charge-engine.
+
+Goal:
+Convert assessed fees into actual collected payments.
+
+Requirements:
+- consume fee.assessed.v1
+- validate fee assessment
+- initiate payment:
+  - customer account → bank fee account
+- update fee status
+- emit:
+  - fee.collected.v1
+  - fee.failed.v1
+
+Fee states:
+- ASSESSED
+- COLLECTION_PENDING
+- COLLECTED
+- FAILED
+
+Adapters:
+- PostgreSQL:
+  - getFeeAssessment(...)
+  - updateFeeStatus(...)
+- Payment adapter:
+  - initiateTransfer(...)
+- Kafka:
+  - publish fee.collected.v1
+  - publish fee.failed.v1
+
+Rules:
+- do not collect twice
+- insufficient funds → FAILED placeholder
+- idempotent processing
+
+Tests:
+- fee collected successfully
+- failed collection handled
+- duplicate event skipped
+
+=============================35) Ops Dashboard Aggregation Service
+
+This is your control tower. Without this, ops teams drown.
+
+
+A. Plan prompt (Ask mode)
+
+==============================
+You are implementing ops dashboard aggregation service for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- search-indexing-service
+- audit-service
+- workflow-case-management
+- payment-orchestration
+- account-service
+
+Goal:
+Design aggregated ops dashboard service.
+
+Business intent:
+- ops teams need unified view across system
+- avoid querying each microservice directly
+- provide summary + drill-down capability
+- read-only
+
+Responsibilities:
+- aggregate data from index/search layer
+- provide dashboard endpoints
+- support filtering and metrics
+
+Produce:
+- service design
+- endpoint design
+- aggregation strategy
+- performance considerations
+- test plan
+
+========================
+B. Build prompt (Code mode)
+
+=======================
+
+Implement ops dashboard aggregation service in /services/ops-dashboard-service.
+
+Goal:
+Provide unified operational view across platform.
+
+Endpoints:
+- GET /dashboard/summary
+- GET /dashboard/payments
+- GET /dashboard/loans
+- GET /dashboard/onboarding
+- GET /dashboard/disputes
+
+Requirements:
+- Node.js + TypeScript
+- read-only endpoints
+- use search-indexing-service or local DB
+- support filters:
+  - status
+  - date range
+  - customerId
+- support pagination
+- no direct heavy cross-service calls
+
+Summary metrics:
+- total payments
+- total loans
+- onboarding status counts
+- disputes open
+- failed transactions
+
+Adapters:
+- PostgreSQL or search index
+- optional lightweight aggregation queries
+
+Rules:
+- no write operations
+- safe data exposure only
+- internal auth placeholder
+
+Tests:
+- summary endpoint returns aggregated data
+- filters work correctly
+- pagination works
+- no unsafe data exposed
+
+============================
+Where you are after ALL prompts
+
+At this point, you’ve designed:
+
+Core Banking Skeleton
+Accounts
+Payments
+Loans
+Ledger
+Interest
+Fees
+Accounting
+Control Layer
+Workflow
+Maker-checker
+Disputes
+Reconciliation
+Ops + Visibility
+Audit
+Search
+Dashboard
+Customer Experience
+Notifications
+Onboarding (eKYC)
+
+
+Reality check (important)
+
+You now have:
+
+👉 ~35 production-grade service prompts
+👉 covering 80–90% of a real digital bank architecture
+
+But remember:
+
+You still don’t have a bank…
+You have a perfect blueprint for one.
+
+If you want next (final evolution)
+
+Next level after this is:
+
+Treasury / liquidity management
+Limits engine (daily/monthly caps)
+AML / transaction monitoring
+Multi-currency engine
+Settlement & clearing integration
+
+That’s where you start entering Flexcube-level territory.
+
+
+======================================

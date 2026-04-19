@@ -1,0 +1,948 @@
+You are implementing the FX Rate & Currency Reference Service for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- alm-engine
+- liquidity-service
+- treasury-operations
+- shared packages
+
+Goal:
+Design the first FX Rate & Currency Reference Service.
+
+Business intent:
+- the platform must have a trusted source of currency metadata and FX rates
+- the first version should support manually managed spot rates
+- rates must be auditable and versioned
+- do not integrate external market data feeds yet
+
+Responsibilities:
+- manage currency definitions
+- manage FX rate pairs
+- expose latest rate lookup APIs
+- support future event publication when rates change
+
+Please produce:
+1. currency model
+2. FX rate model
+3. API design
+4. rate versioning strategy
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for market data providers, rate history, and intraday snapshots
+
+
+===========B. Build prompt (Code mode)
+
+Implement the FX Rate & Currency Reference Service in /services/fx-rate-service.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Keep controllers thin and put logic in application/domain layers.
+6. Use adapters for PostgreSQL and Kafka.
+7. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first internal FX rate and currency reference service.
+
+Endpoints:
+- GET /health
+- POST /fx/currencies
+- GET /fx/currencies/:currencyCode
+- POST /fx/rates
+- GET /fx/rates/latest?base=XXX&quote=YYY
+- GET /fx/rates/history?base=XXX&quote=YYY optional placeholder
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- support manual rate entry only for phase 1
+- persist currencies and FX rates in PostgreSQL
+- emit fx.rate.updated.v1 when a new latest rate is recorded
+- ensure idempotent handling of repeated rate submissions
+- do not integrate external market data providers yet
+
+Currency model:
+- Currency
+  - currencyCode
+  - currencyName
+  - decimalPlaces
+  - status
+  - createdAt
+  - updatedAt
+
+FXRate model:
+- FXRate
+  - rateId
+  - baseCurrency
+  - quoteCurrency
+  - rateType (SPOT placeholder)
+  - rateValue
+  - effectiveAt
+  - version
+  - createdAt
+
+Adapter requirements:
+- PostgreSQL:
+  - createCurrency(...)
+  - getCurrencyByCode(...)
+  - createFxRate(...)
+  - getLatestFxRate(base, quote)
+  - getFxRateHistory(base, quote) optional placeholder
+  - hasProcessedRateRequest(...) placeholder if useful
+- Kafka:
+  - publish fx.rate.updated.v1
+
+Behavior rules:
+- validate that currencies exist before inserting rates
+- support direct currency pair lookup only for phase 1
+- duplicate same base/quote/effectiveAt/rateValue should be handled safely
+- GET latest should return the most recent effective rate
+- malformed input must fail safely
+- do not invent cross-rates yet unless explicitly easy and isolated
+
+Event requirements:
+- publish fx.rate.updated.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - rateId
+  - baseCurrency
+  - quoteCurrency
+  - rateType
+  - rateValue
+  - effectiveAt
+  - timestamp
+
+Observability:
+- structured logging
+- OpenTelemetry hooks
+- metrics:
+  - FX rates created
+  - duplicate rate submissions skipped
+  - latest rate lookups
+
+Tests:
+- create currency
+- create FX rate
+- get latest rate
+- duplicate rate handled safely
+- invalid currency pair rejected
+- fx.rate.updated.v1 emitted
+
+Deliver:
+- code + tests + summary
+- TODOs for market data feed integration and historical rate policies
+
+==============
+
+42) FX Position / Multi-Currency Exposure Engine
+
+This is the real exposure layer. It aggregates positions by currency and calculates net open positions.
+
+A. Plan prompt (Ask mode)
+
+You are implementing the FX Position / Multi-Currency Exposure Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- fx-rate-service
+- liquidity-service
+- treasury-operations
+- alm-engine
+- accounting-service
+- shared packages
+
+Goal:
+Design the first FX position and multi-currency exposure engine.
+
+Business intent:
+- the bank must know its net position by currency
+- the engine should aggregate exposures across assets, liabilities, and treasury balances
+- the first version should support direct exposure calculation without derivatives
+- do not integrate external trading systems yet
+
+Responsibilities:
+- aggregate currency positions
+- calculate net open position per currency
+- expose APIs for exposure summaries
+- support valuation into a base reporting currency
+
+Please produce:
+1. exposure model
+2. data source mapping
+3. valuation approach
+4. API design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for nostro/vostro, derivatives, and off-balance-sheet positions
+
+============B. Build prompt (Code mode)
+
+Implement the FX Position / Multi-Currency Exposure Engine in /services/fx-exposure-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review fx-rate-service, liquidity-service, alm-engine, and accounting-service if present.
+4. Keep controllers thin and put logic in application/domain layers.
+5. Use adapters for PostgreSQL and internal service calls or local data adapters.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first engine for multi-currency exposure aggregation.
+
+Endpoints:
+- GET /fx/exposures
+- GET /fx/exposures/:currency
+- GET /fx/exposures/summary?reportingCurrency=XXX
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- aggregate positions by currency from available internal data sources
+- calculate:
+  - grossAssetsByCurrency
+  - grossLiabilitiesByCurrency
+  - netOpenPosition
+- support optional valuation into a reporting currency using latest FX rates
+- do not integrate derivatives or hedging yet
+- do not integrate external trading systems yet
+
+Exposure model:
+- CurrencyExposure
+  - currency
+  - grossAssets
+  - grossLiabilities
+  - netOpenPosition
+  - reportingCurrency optional
+  - reportingValue optional
+  - updatedAt
+
+Data source assumptions:
+- loans and loan balances -> assets
+- deposits and liabilities -> liabilities
+- treasury/funding accounts -> positions
+- liquidity positions may be reused where appropriate
+- keep source mappings explicit and replaceable
+
+Valuation rules:
+- if reportingCurrency is requested:
+  - use latest direct FX rate from fx-rate-service or adapter
+  - if currency == reportingCurrency, valuation = amount
+  - if no FX rate is available, fail safely or mark as unavailable
+- do not invent synthetic cross-rate logic for phase 1 unless isolated and clearly documented
+
+Adapter requirements:
+- PostgreSQL:
+  - fetchLoanAssetPositionsByCurrency(...)
+  - fetchDepositLiabilityPositionsByCurrency(...)
+  - fetchTreasuryPositionsByCurrency(...)
+- FX rate adapter:
+  - getLatestFxRate(base, quote)
+
+Behavior rules:
+- netOpenPosition = grossAssets - grossLiabilities
+- deterministic calculations only
+- empty dataset handled safely
+- missing FX rate handled safely
+- multi-currency exposure summary must not mutate state
+
+Observability:
+- structured logging
+- OpenTelemetry hooks
+- metrics:
+  - exposure calculations run
+  - valuation requests run
+  - missing rate errors
+
+Tests:
+- aggregate exposure by currency
+- calculate net open position correctly
+- value exposure into reporting currency
+- missing FX rate handled safely
+- empty dataset safe handling
+
+Deliver:
+- code + tests + summary
+- TODOs for cross-rates, off-balance-sheet items, and derivatives exposure
+
+43) FX Shock / Revaluation Engine
+
+This is where treasury and risk get the “what happens if the currency moves?” answer.
+
+A. Plan prompt (Ask mode)
+
+You are implementing the FX Shock / Revaluation Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- fx-rate-service
+- fx-exposure-engine
+- alm-engine
+- interest-rate-risk-engine
+- shared packages
+
+Goal:
+Design the first FX shock and revaluation engine.
+
+Business intent:
+- estimate P&L or valuation impact of exchange-rate movements
+- support simple shock scenarios for treasury and risk review
+- keep scenario logic deterministic and auditable
+- do not integrate live market risk systems yet
+
+Responsibilities:
+- run shock scenarios on currency exposures
+- calculate revalued positions
+- calculate FX gain/loss placeholder impact
+- expose scenario APIs
+
+Please produce:
+1. scenario model
+2. shock calculation design
+3. revaluation approach
+4. API design
+5. persistence strategy optional
+6. failure handling strategy
+7. test plan
+8. extension points for VaR, stressed scenarios, and hedging overlays
+
+================B. Build prompt (Code mode)
+
+Implement the FX Shock / Revaluation Engine in /services/fx-exposure-engine or a clearly justified /services/fx-risk-engine consistent with the repo structure.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review fx-rate-service and fx-exposure-engine if present.
+4. Keep controllers thin and put logic in application/domain layers.
+5. Use adapters for PostgreSQL only if optional scenario persistence is added.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Provide FX shock and revaluation analysis for multi-currency exposures.
+
+Endpoints:
+- GET /fx/shocks/scenarios
+- POST /fx/shocks/run
+- GET /fx/shocks/results/:scenarioId optional if persistence is implemented
+
+Initial standard scenarios:
+- FX_UP_5_PERCENT
+- FX_DOWN_5_PERCENT
+- FX_UP_10_PERCENT
+- FX_DOWN_10_PERCENT
+- custom percentage shock via POST request
+
+Model:
+- FXShockScenario
+  - scenarioId
+  - scenarioName
+  - shockPercent
+  - reportingCurrency
+  - createdAt
+- FXShockResult
+  - currency
+  - originalNetPosition
+  - originalReportingValue
+  - shockedReportingValue
+  - deltaValue
+  - scenarioName
+  - calculatedAt
+
+Behavior rules:
+- load current currency exposures
+- apply percentage shock to FX valuation
+- compare original vs shocked reporting-currency value
+- produce deterministic scenario results
+- no live market data integration
+- no hedging offsets in phase 1
+- no VaR or stochastic modeling yet
+
+Calculation rules:
+- if reportingCurrency requested:
+  - use baseline valuation from FX Exposure Engine
+  - apply shock to FX rate for relevant non-reporting currencies
+- if currency equals reportingCurrency, shocked value remains unchanged
+- safe handling of missing FX rates
+- safe handling of zero exposures
+
+Adapters:
+- FX exposure adapter:
+  - getCurrentCurrencyExposures(reportingCurrency)
+- FX rate adapter:
+  - getLatestFxRate(base, quote)
+
+Observability:
+- structured logging
+- OpenTelemetry hooks
+- metrics:
+  - shock scenarios run
+  - shock calculation latency
+  - missing FX rate errors
+
+Tests:
+- standard scenarios execute correctly
+- custom scenario works safely
+- reporting currency exposure remains unchanged
+- missing FX rate handled safely
+- deterministic results for sample data
+
+Deliver:
+- code + tests + summary
+- TODOs for VaR, stress testing, hedging overlays, and scenario persistence
+
+🔹 44A) Loan Pricing Engine
+
+This determines:
+👉 “At what rate do we lend?”
+
+A. Plan prompt (Ask mode)
+
+You are implementing the Loan Pricing Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- loan-orchestration
+- rules-engine
+- interest-rate-risk-engine
+- fx-rate-service
+- shared packages
+
+Goal:
+Design a flexible loan pricing engine.
+
+Business intent:
+- determine interest rates for loans based on multiple factors
+- support base rate + spread model
+- allow rule-based adjustments
+
+Responsibilities:
+- calculate loan pricing
+- apply risk-based spread
+- expose pricing APIs
+
+Produce:
+1. pricing model
+2. pricing factors
+3. rule integration design
+4. API design
+5. test plan
+6. extension points for dynamic pricing and risk scoring
+
+========B. Build prompt (Code mode)
+
+Implement the Loan Pricing Engine in /services/pricing-engine.
+
+Goal:
+Calculate loan interest rates using base rate + spread model.
+
+Endpoints:
+- POST /pricing/loans/calculate
+- GET /pricing/loans/rules
+
+Input:
+- customerId
+- loanAmount
+- tenor
+- currency
+- riskScore placeholder
+
+Output:
+- baseRate
+- spread
+- finalRate
+
+Pricing model:
+- finalRate = baseRate + spread
+
+Base rate:
+- use reference rate placeholder (e.g., internal base rate)
+
+Spread factors:
+- loan amount tier
+- tenor
+- riskScore placeholder
+
+Adapters:
+- Rules engine:
+  - getPricingRules(...)
+- optional FX:
+  - for currency-specific pricing
+
+Rules:
+- deterministic calculation
+- safe handling of missing factors
+
+Tests:
+- pricing calculation correct
+- rule-based spread applied
+- edge cases handled
+
+Deliver:
+- code + tests + summary
+
+
+==========
+
+🔹 44B) Deposit Pricing Engine
+
+This determines:
+👉 “At what rate do we attract deposits?”
+
+A. Plan prompt (Ask mode)
+
+You are implementing the Deposit Pricing Engine.
+
+Read:
+- account-service
+- alm-engine
+- liquidity-service
+- rules-engine
+
+Goal:
+Design deposit pricing logic.
+
+Business intent:
+- control cost of funds
+- adjust rates based on liquidity needs
+- support tiered pricing
+
+Produce:
+1. pricing model
+2. factors (balance tiers, tenure)
+3. liquidity-driven adjustment design
+4. API design
+5. test plan
+
+
+B. Build prompt (Code mode)
+
+-------
+
+Implement Deposit Pricing Engine in /services/pricing-engine.
+
+Goal:
+Calculate deposit interest rates.
+
+Endpoints:
+- POST /pricing/deposits/calculate
+
+Input:
+- accountType
+- depositAmount
+- tenure
+- currency
+
+Output:
+- baseRate
+- adjustment
+- finalRate
+
+Model:
+- finalRate = baseRate + adjustment
+
+Factors:
+- balance tier
+- tenure
+- liquidity condition placeholder
+
+Adapters:
+- Liquidity service:
+  - getLiquidityPosition(...)
+- Rules engine:
+  - getDepositPricingRules(...)
+
+Rules:
+- higher liquidity shortage → higher rates
+- deterministic logic
+
+Tests:
+- tier-based pricing works
+- liquidity adjustment applied
+- edge cases handled
+
+Deliver:
+- code + tests + summary
+
+--------=======
+
+🔹 44C) Transfer / FX Pricing Engine
+
+This is where you monetize:
+👉 transfers
+👉 FX spreads
+👉 fees
+
+==============A. Plan prompt (Ask mode)
+
+You are implementing Transfer and FX Pricing Engine.
+
+Read:
+- payment-orchestration
+- fx-rate-service
+- fee-charge-engine
+- rules-engine
+
+Goal:
+Design pricing for transfers and FX.
+
+Business intent:
+- apply fees and FX spreads
+- ensure consistent pricing across channels
+
+Produce:
+1. pricing model
+2. FX spread logic
+3. fee model
+4. API design
+5. test plan
+
+==========B. Build prompt (Code mode)
+
+Implement Transfer and FX Pricing Engine in /services/pricing-engine.
+
+Goal:
+Calculate pricing for transfers and FX transactions.
+
+Endpoints:
+- POST /pricing/transfers/calculate
+- POST /pricing/fx/calculate
+
+Transfer pricing:
+Input:
+- amount
+- currency
+- transferType
+
+Output:
+- fee
+- totalAmount
+
+FX pricing:
+Input:
+- baseCurrency
+- quoteCurrency
+- amount
+
+Output:
+- baseRate
+- spread
+- finalRate
+- convertedAmount
+
+Model:
+- finalRate = baseRate + spread
+- convertedAmount = amount * finalRate
+
+Adapters:
+- FX rate service:
+  - getLatestFxRate(...)
+- Rules engine:
+  - getTransferPricingRules(...)
+  - getFxSpreadRules(...)
+
+Rules:
+- spread depends on:
+  - currency pair
+  - amount tier
+- deterministic calculations
+
+Tests:
+- fee calculation correct
+- FX conversion correct
+- spread applied correctly
+- edge cases handled
+
+Deliver:
+- code + tests + summary
+
+
+=========A🔹 45A) Revenue & Cost Attribution Engine
+
+This connects:
+👉 transactions → revenue → cost
+
+A. Plan prompt (Ask mode)
+
+You are implementing the Revenue & Cost Attribution Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- pricing-engine
+- accounting-service
+- fee-charge-engine
+- loan-orchestration
+- fx-exposure-engine
+- shared packages
+
+Goal:
+Design a system to attribute revenue and cost to financial activities.
+
+Business intent:
+- identify revenue sources (interest, fees, FX)
+- identify cost drivers (funding cost, operational cost placeholders)
+- map financial events to revenue/cost entries
+
+Responsibilities:
+- consume financial events
+- classify revenue and cost
+- persist attribution records
+- expose attribution APIs
+
+Produce:
+1. attribution model
+2. revenue vs cost categories
+3. event mapping strategy
+4. API design
+5. idempotency strategy
+6. test plan
+7. extension points for cost allocation models
+
+===============B. Build prompt (Code mode)
+
+Implement the Revenue & Cost Attribution Engine in /services/profitability-engine.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review pricing-engine, accounting-service, and fee-charge-engine.
+4. Keep controllers thin and logic in application/domain layers.
+5. Use PostgreSQL and Kafka adapters.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Create a system to track revenue and cost per financial event.
+
+Consume events:
+- loan.interest.accrued.v1
+- fee.collected.v1
+- payment.status.updated.v1
+- fx.rate.applied placeholder
+
+Model:
+- RevenueCostRecord
+  - recordId
+  - sourceEventId
+  - category (INTEREST_INCOME, FEE_INCOME, FX_INCOME, FUNDING_COST)
+  - amount
+  - currency
+  - relatedEntityId (loanId, accountId, etc.)
+  - createdAt
+
+Rules:
+- interest accrual → INTEREST_INCOME
+- fee collected → FEE_INCOME
+- FX spread → FX_INCOME placeholder
+- funding cost → placeholder logic
+
+Adapters:
+- PostgreSQL:
+  - createRevenueCostRecord(...)
+  - hasProcessedEvent(...)
+- Kafka:
+  - consume events
+  - publish profitability.record.created.v1
+
+Behavior:
+- idempotent processing
+- safe classification
+- deterministic mapping
+
+Tests:
+- revenue correctly attributed
+- duplicate event skipped
+- multiple categories handled
+
+Deliver:
+- code + tests + summary
+
+============🔹 45B) Customer / Product Profitability Engine
+
+This answers:
+👉 “Which customers/products are profitable?”
+
+A. Plan prompt (Ask mode)
+
+You are implementing Customer/Product Profitability Engine.
+
+Read:
+- profitability-engine
+- customer-service
+- account-service
+- loan-orchestration
+
+Goal:
+Design profitability aggregation by customer and product.
+
+Business intent:
+- measure profitability per customer
+- measure profitability per product
+- support segmentation
+
+Produce:
+1. aggregation model
+2. grouping strategy
+3. API design
+4. test plan
+
+==============B. Build prompt (Code mode)
+
+Implement Customer/Product Profitability Engine in /services/profitability-engine.
+
+Goal:
+Aggregate revenue and cost into profitability views.
+
+Endpoints:
+- GET /profitability/customers/:customerId
+- GET /profitability/products/:productType
+
+Model:
+- ProfitabilityView:
+  - entityId
+  - totalRevenue
+  - totalCost
+  - netProfit
+  - currency
+
+Rules:
+- netProfit = revenue - cost
+- aggregate from RevenueCostRecord
+
+Adapters:
+- PostgreSQL:
+  - fetchRevenueCostByEntity(...)
+- Customer/Product mapping:
+  - resolveEntityOwnership(...)
+
+Behavior:
+- deterministic aggregation
+- safe handling of missing data
+
+Tests:
+- customer profitability correct
+- product profitability correct
+- empty dataset safe handling
+
+Deliver:
+- code + tests + summary
+
+🔹 45C) Bank-Level P&L & Margin Engine
+
+This is the top-level:
+👉 “How profitable is the entire bank?”
+
+A. Plan prompt (Ask mode)
+
+You are implementing Bank-Level P&L Engine.
+
+Read:
+- profitability-engine
+- accounting-service
+- alm-engine
+- interest-rate-risk-engine
+
+Goal:
+Design bank-level P&L reporting.
+
+Business intent:
+- provide full income statement view
+- calculate margins
+- support management reporting
+
+Produce:
+1. P&L model
+2. aggregation strategy
+3. margin calculation design
+4. API design
+5. test plan
+
+==============B. Build prompt (Code mode)
+
+Implement Bank-Level P&L Engine in /services/profitability-engine.
+
+Goal:
+Provide bank-level profitability metrics.
+
+Endpoints:
+- GET /profitability/pnl
+- GET /profitability/margins
+
+Model:
+- BankPnL:
+  - totalInterestIncome
+  - totalFeeIncome
+  - totalFxIncome
+  - totalCost
+  - netProfit
+  - currency
+  - calculatedAt
+
+- MarginMetrics:
+  - netInterestMargin
+  - costOfFunds
+  - yieldOnAssets
+
+Rules:
+- netProfit = totalIncome - totalCost
+- NIM = interestIncome / totalAssets
+- costOfFunds = interestExpense / liabilities placeholder
+
+Adapters:
+- PostgreSQL:
+  - aggregateRevenueCost(...)
+- ALM engine:
+  - getTotalAssets(...)
+  - getTotalLiabilities(...)
+
+Behavior:
+- deterministic aggregation
+- safe divide-by-zero handling
+
+Tests:
+- P&L calculation correct
+- margin metrics correct
+- edge cases handled
+
+Deliver:
+- code + tests + summary
+
+
+🧠 What you just built
+
+With Profitability Engine, your system now answers:
+
+💰 Revenue
+where money is coming from
+which product generates income
+📉 Cost
+funding cost
+operational cost placeholders
+📊 Profit
+per customer
+per product
+per bank
+🔥 This is the final layer
+
+Now your system is:
+
+👉 Transaction system
+👉 Risk system
+👉 Treasury system
+👉 ALM system
+👉 Pricing system
+👉 Profitability system
+

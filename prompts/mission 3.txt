@@ -1,0 +1,1373 @@
+Good. Now we’re stepping into real banking muscle — this is where systems usually start breaking if the foundation is weak.
+
+Here are your next 3 Codex prompts, clean and production-minded:
+
+
+21) Loan Disbursement Flow
+
+This is the moment money actually moves. Treat it with respect.
+
+A. Plan prompt (Ask mode)
+
+
+You are implementing loan disbursement flow for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/loan-orchestration.md if present
+- docs/services/account-service.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services/loan-orchestration
+- shared packages under /packages if present
+
+Goal:
+Design the first loan disbursement flow after loan account creation.
+
+Business intent:
+- once a loan account is created, funds must be disbursed to a customer account
+- disbursement must be event-driven, auditable, and idempotent
+- disbursement should integrate with internal payment flow (not direct balance mutation)
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- consume loan.account.created.v1
+- trigger disbursement request
+- call internal payment service to move funds
+- update loan account status
+- emit loan.disbursed.v1
+
+Please produce:
+1. proposed flow design
+2. interaction with payment-orchestration
+3. loan state transitions
+4. idempotency strategy
+5. failure and retry strategy
+6. test plan
+7. future extension for multi-tranche disbursement
+
+Do not write code yet.
+-------------------------
+B. Build prompt (Code mode)
+
+
+Implement the first loan disbursement flow in /services/loan-orchestration.
+
+Before making changes:
+- Read AGENTS.md
+- Follow repo conventions
+- Keep logic in application/domain layers
+- Use PostgreSQL, Kafka, and internal adapters
+- Add tests and verification
+
+Goal:
+Create event-driven loan disbursement using payment service.
+
+Requirements:
+- consume loan.account.created.v1
+- validate event
+- load loan account
+- ensure idempotency (do not disburse twice)
+- create disbursement request
+- call payment-orchestration (internal transfer)
+- update loan account status
+- emit loan.disbursement.initiated.v1
+
+Loan states:
+- CREATED → DISBURSEMENT_PENDING → DISBURSED
+- prevent invalid transitions
+
+Adapter requirements:
+- PostgreSQL:
+  - getLoanAccountById
+  - updateLoanAccountStatus
+  - hasProcessedDisbursementEvent
+- Payment adapter:
+  - initiateInternalTransfer(...)
+- Kafka:
+  - publish loan.disbursement.initiated.v1
+
+Rules:
+- disbursement = transfer from bank funding account → customer account
+- do NOT mutate balances directly
+- rely on payment service
+
+Observability:
+- correlationId
+- logs + metrics
+
+Tests:
+- disbursement triggered on loan.account.created.v1
+- duplicate event skipped
+- invalid state blocked
+- payment request created
+
+Deliver:
+- code + tests + summary
+
+------------22) Repayment Initiation Flow
+
+Money comes back. This is where consistency matters more than speed.
+
+A. Plan prompt (Ask mode)
+
+
+You are implementing repayment initiation flow for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- architecture docs
+- loan-orchestration
+- payment-orchestration
+
+Goal:
+Design repayment initiation for loan accounts.
+
+Business intent:
+- customers must repay loans through payment flows
+- repayment must be auditable and idempotent
+- repayment should go through payment service
+- no direct balance mutation
+
+Responsibilities:
+- accept repayment request
+- validate loan account
+- create repayment record
+- trigger payment
+- emit loan.repayment.initiated.v1
+
+Produce:
+- API design
+- domain model
+- state transitions
+- failure handling
+- test plan
+
+------------B. Build prompt (Code mode)
+
+Implement repayment initiation in /services/loan-orchestration.
+
+Goal:
+Create repayment initiation flow using payment service.
+
+Endpoints:
+- POST /loans/:loanAccountId/repayments
+
+Requirements:
+- validate payload
+- idempotency support
+- create repayment record
+- call payment-orchestration (customer → loan funding account)
+- emit loan.repayment.initiated.v1
+
+Domain:
+- LoanRepayment:
+  - repaymentId
+  - loanAccountId
+  - amount
+  - status
+  - createdAt
+
+Statuses:
+- INITIATED
+- PROCESSING
+- COMPLETED
+- FAILED
+
+Rules:
+- repayment must not exceed placeholder limit (basic validation only)
+- do not implement schedule logic yet
+
+Adapters:
+- PostgreSQL:
+  - createRepayment
+  - getLoanAccount
+- Payment adapter:
+  - initiateTransfer(...)
+- Kafka:
+  - publish loan.repayment.initiated.v1
+
+Observability:
+- logs
+- correlationId
+
+Tests:
+- repayment request creates record
+- payment triggered
+- duplicate request handled
+- invalid loan handled safely
+
+Deliver:
+- code + tests + summary
+
+-------------23) Delinquency / Collections Skeleton
+
+Now we introduce “things go wrong” logic. This is where real banks live.
+
+
+A. Plan prompt (Ask mode)
+
+You are implementing delinquency and collections skeleton for FaceLessBanking.
+
+Read:
+- AGENTS.md
+- loan-orchestration
+- workflow-case-management
+
+Goal:
+Design a basic delinquency detection and collections skeleton.
+
+Business intent:
+- loans must be monitored for missed repayments
+- delinquency should trigger workflow cases
+- system should support future collections strategy
+
+Responsibilities:
+- detect overdue loans (placeholder logic)
+- mark delinquent loans
+- create collections case
+- emit loan.delinquent.v1
+
+Produce:
+- detection strategy
+- state model
+- workflow integration
+- future extension points
+- test plan
+--------------------
+
+B. Build prompt (Code mode)
+
+Implement delinquency skeleton in /services/loan-orchestration.
+
+Goal:
+Detect overdue loans and trigger collections workflow.
+
+Requirements:
+- scheduled job or placeholder trigger
+- identify overdue loans (simple placeholder rule)
+- update loan status
+- create collections case via workflow service
+- emit loan.delinquent.v1
+
+Loan states:
+- ACTIVE
+- DELINQUENT
+- CLOSED placeholder
+
+Rules:
+- simple overdue rule:
+  - if repayment missing (placeholder logic)
+- keep logic isolated for future real schedule engine
+
+Adapters:
+- PostgreSQL:
+  - findOverdueLoans
+  - updateLoanStatus
+- Workflow adapter:
+  - createCollectionsCase(...)
+- Kafka:
+  - publish loan.delinquent.v1
+
+Observability:
+- logs
+- metrics
+
+Tests:
+- overdue loan triggers delinquency
+- case created
+- duplicate detection skipped
+- safe handling of empty dataset
+
+Deliver:
+- code + tests + summary
+
+
+--------------------
+
+If you want next, I can give you:
+
+👉 loan repayment schedule engine (amortization logic)
+👉 interest accrual engine (daily/monthly)
+👉 GL / accounting skeleton (double-entry)
+
+
+Absolutely. Here are the next three exact Codex prompts:
+
+Loan Repayment Schedule Engine (Amortization Logic)
+Interest Accrual Engine (Daily / Monthly)
+GL / Accounting Skeleton (Double-Entry)
+
+These are the prompts that start turning your platform from “digital lending app with workflows” into actual banking machinery.
+
+
+-------------24) Loan Repayment Schedule Engine (Amortization Logic)
+
+This gives each loan account a real repayment plan instead of vague vibes and hope.
+
+A. Plan prompt (Ask mode)\\\
+
+
+You are implementing the loan repayment schedule engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/loan-orchestration.md if present
+- code under /services/loan-orchestration
+- shared packages under /packages if present
+
+Goal:
+Design the first repayment schedule engine for loan accounts.
+
+Business intent:
+- every loan account should have a repayment schedule
+- the first version must support simple amortization logic
+- schedule generation must be deterministic, auditable, and idempotent
+- do not integrate Fineract yet
+- keep the implementation isolated so more schedule types can be added later
+
+Expected responsibilities:
+- generate repayment schedule after loan account creation or before disbursement depending current flow
+- support a basic amortization model
+- persist repayment schedule entries
+- emit loan.schedule.generated.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. schedule generation design
+3. amortization model assumptions
+4. repayment schedule domain model
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for grace periods, balloon payments, and alternate interest methods
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+-------------
+B. Build prompt (Code mode)
+
+Implement the first loan repayment schedule engine in /services/loan-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing loan-orchestration code.
+6. Review loan.account.created.v1 and loan.approval.approved.v1 contracts if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first deterministic loan repayment schedule engine.
+
+Requirements:
+- Node.js + TypeScript
+- implement schedule generation logic in loan-orchestration
+- support generation triggered by:
+  - loan.account.created.v1
+  - or a service-level application call if that fits the existing structure better
+- persist generated schedule entries
+- emit loan.schedule.generated.v1
+- ensure idempotent generation
+- do not integrate Fineract yet
+
+Initial amortization requirements:
+- support one schedule type only for now:
+  - fixed installment amortization placeholder
+- inputs:
+  - principalAmount
+  - annualInterestRate placeholder
+  - term
+  - paymentFrequency placeholder (default MONTHLY)
+  - firstDueDate placeholder or derived due date
+- outputs:
+  - installmentNumber
+  - dueDate
+  - principalDue
+  - interestDue
+  - totalDue
+  - outstandingPrincipalAfter
+- use a simple, clearly documented formula
+- keep formulas isolated for replacement later
+
+Domain model requirements:
+- LoanRepaymentSchedule
+  - scheduleId
+  - loanAccountId
+  - scheduleType
+  - generatedAt
+- LoanRepaymentScheduleEntry
+  - entryId
+  - scheduleId
+  - installmentNumber
+  - dueDate
+  - principalDue
+  - interestDue
+  - totalDue
+  - outstandingPrincipalAfter
+  - status placeholder (PENDING)
+- do not implement payment allocation logic yet
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - getLoanAccountById(...)
+  - getRepaymentScheduleByLoanAccountId(...)
+  - createRepaymentSchedule(...)
+  - createRepaymentScheduleEntries(...)
+  - hasProcessedScheduleGenerationEvent(...)
+  - markScheduleGenerationEventProcessed(...)
+- Kafka adapter additions:
+  - publish loan.schedule.generated.v1
+  - consume trigger event if event-driven approach is used
+
+Behavior rules:
+- if schedule already exists for loanAccountId, skip safely
+- duplicate trigger event must not generate duplicate schedules
+- malformed loan account data must fail safely
+- keep rounding strategy explicit and documented
+- keep generated schedule deterministic for the same input set
+
+Event requirements:
+- publish loan.schedule.generated.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId
+  - loanAccountId
+  - scheduleId
+  - numberOfInstallments
+  - scheduleType
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - schedules generated
+  - duplicate schedule generations skipped
+  - schedule generation failures
+
+Tests required:
+- loan account input generates schedule entries
+- duplicate trigger does not generate duplicate schedule
+- schedule totals are consistent under placeholder formula
+- malformed input fails safely
+- generated event is emitted
+- schedule entry ordering is correct
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future grace period, balloon payment, and alternate amortization support
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+
+
+-----------------25) Interest Accrual Engine (Daily / Monthly)
+
+This is where the platform starts behaving like a bank ledger, not just a workflow app.
+
+A. Plan prompt (Ask mode)
+
+
+You are implementing the interest accrual engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/loan-orchestration.md if present
+- code under /services/loan-orchestration
+- shared packages under /packages if present
+
+Goal:
+Design the first interest accrual engine for loan accounts.
+
+Business intent:
+- the system must be able to accrue interest over time
+- the first version should support simple daily and monthly accrual modes
+- accrual must be auditable, deterministic, and idempotent
+- do not integrate Fineract yet
+- do not post GL entries yet in this prompt
+
+Expected responsibilities:
+- identify loan accounts requiring accrual
+- calculate accrued interest
+- persist accrual records
+- emit loan.interest.accrued.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. accrual strategy design
+3. daily vs monthly handling
+4. accrual domain model
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for non-performing loans, compounding rules, and accounting posting
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+--------------------B. Build prompt (Code mode)
+
+
+Implement the first interest accrual engine in /services/loan-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing loan-orchestration code.
+6. Review repayment schedule and loan account models if present.
+7. Keep controllers thin and put logic in application/domain layers.
+8. Use adapters for PostgreSQL and Kafka.
+9. Add tests and run verification commands before finishing.
+
+Goal:
+Create a first deterministic interest accrual engine for loan accounts.
+
+Requirements:
+- Node.js + TypeScript
+- implement accrual logic in loan-orchestration
+- support two accrual modes:
+  - DAILY
+  - MONTHLY
+- support execution through:
+  - internal scheduled job placeholder
+  - and/or service method entry point
+- persist accrual records
+- emit loan.interest.accrued.v1
+- ensure idempotent accrual processing
+- do not integrate Fineract yet
+- do not post GL/accounting entries yet
+
+Initial accrual assumptions:
+- use simple interest accrual placeholder
+- principal basis should come from loan account outstanding principal
+- annualInterestRate must be read from loan account or a placeholder field
+- daily mode:
+  - accrue based on annual rate / day-count placeholder
+- monthly mode:
+  - accrue on a monthly boundary placeholder
+- keep formula implementation isolated and well documented
+
+Domain model requirements:
+- LoanInterestAccrual
+  - accrualId
+  - loanAccountId
+  - accrualMode
+  - accrualDate
+  - principalBasis
+  - accruedInterest
+  - annualInterestRate
+  - createdAt
+- do not implement capitalized interest or compounding in this prompt
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - findLoanAccountsEligibleForAccrual(...)
+  - getOutstandingPrincipal(...)
+  - hasAccrualForLoanAndDate(...)
+  - createInterestAccrual(...)
+- Kafka adapter additions:
+  - publish loan.interest.accrued.v1
+
+Behavior rules:
+- do not accrue twice for same loanAccountId + accrualDate + accrualMode
+- skip inactive or closed loan placeholder statuses
+- malformed loan data must fail safely
+- keep rounding strategy explicit and documented
+- allow a scheduled run to process many loan accounts safely
+
+Event requirements:
+- publish loan.interest.accrued.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - loanAccountId
+  - accrualId
+  - accrualDate
+  - accrualMode
+  - accruedInterest
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support where available
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - accruals processed
+  - accruals skipped as duplicates
+  - accrual failures
+  - eligible loan accounts scanned
+
+Tests required:
+- daily accrual creates correct accrual record
+- monthly accrual creates correct accrual record
+- duplicate accrual is skipped safely
+- inactive or closed loan is skipped
+- malformed data fails safely
+- accrual event is emitted
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future accounting posting, compounding, and non-performing loan treatment
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+----------------------26) GL / Accounting Skeleton (Double-Entry)
+
+This is the big one. Keep it thin, disciplined, and boring. Banking accounting should be boring.
+
+A. Plan prompt (Ask mode)
+
+You are implementing the GL / accounting skeleton for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/audit-service.md if present
+- docs/services/loan-orchestration.md if present
+- docs/services/payment-orchestration.md if present
+- code under /services if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first double-entry GL/accounting skeleton for the platform.
+
+Business intent:
+- the platform must have a basic double-entry accounting foundation
+- the first version should not try to be a full core accounting engine
+- accounting entries should be event-driven and auditable
+- keep posting logic isolated and deterministic
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- define chart-of-accounts placeholders
+- create journal entry model
+- support event-driven journal posting skeleton
+- ensure balanced debit/credit entries
+- emit accounting.journal.posted.v1
+
+Please produce:
+1. proposed service or module ownership
+2. chart-of-accounts placeholder design
+3. journal entry model
+4. posting strategy
+5. balance enforcement rules
+6. idempotency strategy
+7. failure handling strategy
+8. test plan
+9. extension points for deeper accounting integration later
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+--------------------------B. Build prompt (Code mode)
+
+
+Implement the first GL / accounting skeleton for FaceLessBanking.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review existing relevant services and event contracts.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create a first double-entry accounting skeleton with balanced journal posting.
+
+Requirements:
+- Node.js + TypeScript
+- create a new service or module at /services/accounting-service unless repo structure strongly suggests another consistent location
+- implement:
+  - GET /health
+  - POST /accounting/journals
+  - GET /accounting/journals/:journalId
+- implement Kafka consumer support for selected source events:
+  - payment.status.updated.v1
+  - loan.disbursement.initiated.v1
+  - loan.interest.accrued.v1
+- only create journal skeleton entries for initial supported cases
+- ensure every journal is balanced:
+  - total debits == total credits
+- emit accounting.journal.posted.v1
+- do not integrate Fineract yet
+
+Initial accounting model requirements:
+- AccountCode / ChartOfAccount
+  - accountCode
+  - accountName
+  - accountType
+  - normalBalance
+  - status
+- JournalEntry
+  - journalId
+  - sourceEventId
+  - sourceEventType
+  - description
+  - totalDebit
+  - totalCredit
+  - createdAt
+- JournalLine
+  - lineId
+  - journalId
+  - accountCode
+  - entryType (DEBIT or CREDIT)
+  - amount
+  - currency
+
+Initial posting rules:
+- keep rules simple and isolated
+- for payment.status.updated.v1 where status = COMPLETED:
+  - create placeholder balanced journal mapping using configurable account codes
+- for loan.disbursement.initiated.v1:
+  - create placeholder balanced journal mapping
+- for loan.interest.accrued.v1:
+  - create placeholder balanced journal mapping
+- do not attempt full accounting semantics beyond a safe skeleton
+- mappings must be explicit and replaceable
+
+Adapter requirements:
+- PostgreSQL adapter additions:
+  - createJournalEntry(...)
+  - createJournalLines(...)
+  - getJournalById(...)
+  - hasProcessedAccountingEvent(...)
+  - markAccountingEventProcessed(...)
+- Kafka adapter additions:
+  - consume selected source events
+  - publish accounting.journal.posted.v1
+
+Behavior rules:
+- duplicate source events must not create duplicate journals
+- unbalanced journal creation must fail safely
+- malformed source events must fail safely
+- manual POST /accounting/journals should support creating a journal via validated request for testing/admin placeholder use
+- keep chart-of-accounts seed or placeholder config simple and local
+
+Event requirements:
+- publish accounting.journal.posted.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - journalId
+  - sourceEventId
+  - sourceEventType
+  - totalDebit
+  - totalCredit
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - journals posted
+  - duplicate accounting events skipped
+  - unbalanced journal attempts blocked
+  - accounting posting failures
+
+Tests required:
+- manual journal creation enforces balanced entries
+- payment completion source event creates balanced journal
+- loan disbursement source event creates balanced journal
+- interest accrual source event creates balanced journal
+- duplicate source event does not create duplicate journal
+- malformed source event is handled safely
+- GET journal by id returns journal with lines
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for future chart-of-accounts expansion and Fineract/accounting integration
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+-------------------
+
+Best run order for these three
+
+Run them in this order:
+
+Loan Repayment Schedule Engine
+Interest Accrual Engine
+GL / Accounting Skeleton
+
+That order matters because:
+
+schedule defines due structure
+accrual depends on outstanding loan logic
+accounting depends on financial events from the other two
+
+If you want next, I can give you the next three prompts for:
+
+deposit / savings interest engine
+fee / charge engine
+daily close / end-of-day batch orchestration
+
+
+----------------------------------Absolutely. Here are the next three Codex prompts for tomorrow:
+
+Deposit / Savings Interest Engine
+Fee / Charge Engine
+Daily Close / End-of-Day Batch Orchestration
+
+These are the next pieces that make the platform feel like an actual bank instead of just a transaction app.
+
+27) Deposit / Savings Interest Engine
+
+This handles accrual and posting logic for savings or deposit products.
+
+A. Plan prompt (Ask mode)
+
+
+You are implementing the deposit / savings interest engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/account-service.md if present
+- docs/services/balance-service.md if present
+- code under /services/account-service
+- code under /services/balance-service if relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first deposit / savings interest engine for internal accounts.
+
+Business intent:
+- active savings/deposit accounts should support interest accrual
+- the first version should support simple daily accrual and posting placeholders
+- accrual must be deterministic, auditable, and idempotent
+- do not integrate Fineract yet
+- keep formula logic isolated for future product expansion
+
+Expected responsibilities:
+- identify eligible savings/deposit accounts
+- calculate interest accrual
+- persist accrual records
+- optionally prepare posting events
+- emit deposit.interest.accrued.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. accrual strategy design
+3. eligible account model assumptions
+4. interest formula assumptions
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for compounding, tiered rates, and real product config
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+--------------B. Build prompt (Code mode)
+
+Implement the first deposit / savings interest engine in /services/account-service or a clearly justified dedicated service consistent with the repo structure.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review the existing account-related code.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first deterministic savings/deposit interest accrual engine.
+
+Requirements:
+- Node.js + TypeScript
+- support simple daily interest accrual for eligible accounts
+- support execution through:
+  - internal scheduled job placeholder
+  - and/or service method entry point
+- persist accrual records
+- emit deposit.interest.accrued.v1
+- ensure idempotent accrual processing
+- do not integrate Fineract yet
+- do not post accounting entries yet
+
+Initial assumptions:
+- eligible account types:
+  - SAVINGS
+  - TERM_DEPOSIT placeholder
+- use simple daily accrual placeholder
+- principal basis should come from account balance snapshot
+- annualInterestRate should come from account or product placeholder field
+- keep formula isolated and documented
+
+Domain model requirements:
+- DepositInterestAccrual
+  - accrualId
+  - accountId
+  - accrualDate
+  - principalBasis
+  - annualInterestRate
+  - accruedInterest
+  - createdAt
+- do not implement compounding or tiered rates yet
+
+Adapter requirements:
+- PostgreSQL:
+  - findAccountsEligibleForInterestAccrual(...)
+  - getBalanceSnapshot(accountId)
+  - hasDepositAccrualForAccountAndDate(...)
+  - createDepositInterestAccrual(...)
+- Kafka:
+  - publish deposit.interest.accrued.v1
+
+Behavior rules:
+- do not accrue twice for same accountId + accrualDate
+- skip ineligible account statuses safely
+- malformed account data must fail safely
+- keep rounding strategy explicit
+
+Event requirements:
+- publish deposit.interest.accrued.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - accountId
+  - accrualId
+  - accrualDate
+  - accruedInterest
+  - annualInterestRate
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support where available
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - deposit accruals processed
+  - duplicates skipped
+  - accrual failures
+
+Tests required:
+- daily accrual creates accrual record
+- duplicate accrual is skipped
+- ineligible account is skipped safely
+- malformed data fails safely
+- accrual event is emitted
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for compounding, tiered pricing, and product config
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+--------------------------
+28) Fee / Charge Engine
+
+This gives you reusable fee assessment instead of hardcoding charges all over the place like a menace.
+
+A. Plan prompt (Ask mode)
+
+
+------------------
+
+You are implementing the fee / charge engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/payment-orchestration.md if present
+- docs/services/account-service.md if present
+- docs/services/loan-orchestration.md if present
+- code under /services as relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first fee / charge engine for the platform.
+
+Business intent:
+- charges should be assessed by a dedicated engine, not scattered across services
+- the first version should support simple rule-based charges
+- charges should be auditable, deterministic, and idempotent
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- define charge rules
+- evaluate whether a charge applies to an event or action
+- persist charge assessments
+- emit fee.assessed.v1
+
+Please produce:
+1. proposed folder/files to create or update
+2. charge rule design
+3. supported charge scenarios for phase 1
+4. fee assessment model
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for tiered pricing, waivers, and promotions
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+-------------------------B. Build prompt (Code mode)
+
+Implement the first fee / charge engine in /services/fee-charge-engine.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review existing payment, account, and loan service/event contracts if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first centralized fee / charge engine.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - POST /fees/evaluate
+  - POST /fees/rules
+  - GET /fees/rules/:ruleId
+- implement Kafka consumer support for selected source events:
+  - payment.initiated.v1
+  - loan.disbursement.initiated.v1
+  - repayment.initiated placeholder if present
+- evaluate simple charge rules
+- persist charge assessments
+- emit fee.assessed.v1
+- ensure idempotent fee assessment
+- do not integrate Fineract yet
+
+Initial phase 1 charge scenarios:
+- internal transfer fee placeholder
+- loan disbursement fee placeholder
+- repayment processing fee placeholder
+- keep mapping logic isolated and replaceable
+
+Domain model requirements:
+- FeeRule
+  - ruleId
+  - ruleType
+  - triggerEventType
+  - fixedAmount optional
+  - percentage optional
+  - currency
+  - status
+  - createdAt
+- FeeAssessment
+  - assessmentId
+  - sourceEventId
+  - sourceEntityType
+  - sourceEntityId
+  - ruleId
+  - assessedAmount
+  - currency
+  - status
+  - createdAt
+- do not implement posting or collection yet
+
+Adapter requirements:
+- PostgreSQL:
+  - createFeeRule(...)
+  - getFeeRuleById(...)
+  - findApplicableFeeRules(...)
+  - hasProcessedFeeEvent(...)
+  - createFeeAssessment(...)
+  - markFeeEventProcessed(...)
+- Kafka:
+  - consume selected source events
+  - publish fee.assessed.v1
+
+Behavior rules:
+- duplicate source events must not create duplicate fee assessments
+- invalid or inactive rules must not be applied
+- keep fee calculation deterministic
+- allow manual evaluate endpoint for testing/admin placeholder usage
+
+Event requirements:
+- publish fee.assessed.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - assessmentId
+  - sourceEventId
+  - ruleId
+  - assessedAmount
+  - currency
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - fee assessments created
+  - duplicate fee events skipped
+  - fee evaluation failures
+
+Tests required:
+- transfer fee rule evaluates correctly
+- loan disbursement fee rule evaluates correctly
+- duplicate source event is skipped
+- inactive or invalid rule not applied
+- manual evaluate endpoint works safely
+- fee.assessed.v1 emitted
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for waivers, promotions, and fee posting/collection
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+-------------------------29) Daily Close / End-of-Day Batch Orchestration
+
+This is one of those boring things that makes or breaks real banking. Very uncool. Very necessary.
+
+A. Plan prompt (Ask mode)
+
+------------------
+
+You are implementing daily close / end-of-day batch orchestration for FaceLessBanking.
+
+Read first:
+- AGENTS.md at repo root
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/loan-orchestration.md if present
+- docs/services/account-service.md if present
+- docs/services/accounting-service.md if present
+- code under /services as relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first daily close / end-of-day batch orchestration flow for the platform.
+
+Business intent:
+- end-of-day processing should orchestrate key daily jobs in a controlled sequence
+- the first version can be a batch skeleton with placeholders
+- batch runs must be auditable, restartable, and idempotent
+- do not integrate Fineract yet
+
+Expected responsibilities:
+- create batch run records
+- orchestrate key jobs such as:
+  - loan interest accrual
+  - deposit interest accrual
+  - delinquency scan
+  - accounting close placeholder
+- track run status per job
+- emit daily.close.completed.v1 or batch job events
+
+Please produce:
+1. proposed folder/files to create or update
+2. batch orchestration design
+3. job sequencing design
+4. run tracking model
+5. idempotency/restart strategy
+6. failure handling strategy
+7. test plan
+8. extension points for future cut-off calendars and multi-tenant batching
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+-------------------------
+
+B. Build prompt (Code mode)
+
+Implement the first daily close / end-of-day batch orchestration in /services/daily-close-orchestration.
+
+Before making changes:
+1. Read AGENTS.md at repo root.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review relevant accrual, delinquency, and accounting service code if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first end-of-day batch orchestration skeleton.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - POST /daily-close/run
+  - GET /daily-close/runs/:runId
+- support internal orchestration of these placeholder jobs:
+  - loan interest accrual
+  - deposit interest accrual
+  - delinquency scan
+  - accounting close placeholder
+- persist batch run and batch job execution records
+- emit daily.close.started.v1 and daily.close.completed.v1
+- ensure run idempotency for the same business date
+- do not integrate Fineract yet
+
+Domain model requirements:
+- DailyCloseRun
+  - runId
+  - businessDate
+  - status
+  - startedAt
+  - completedAt optional
+- DailyCloseJobExecution
+  - executionId
+  - runId
+  - jobName
+  - status
+  - startedAt
+  - completedAt optional
+  - errorMessage optional
+- statuses:
+  - PENDING
+  - RUNNING
+  - COMPLETED
+  - FAILED
+
+Adapter requirements:
+- PostgreSQL:
+  - getRunByBusinessDate(...)
+  - createRun(...)
+  - updateRunStatus(...)
+  - createJobExecution(...)
+  - updateJobExecutionStatus(...)
+  - getRunWithJobs(...)
+- Kafka:
+  - publish daily.close.started.v1
+  - publish daily.close.completed.v1
+- internal service adapters/placeholders:
+  - runLoanInterestAccrual(...)
+  - runDepositInterestAccrual(...)
+  - runDelinquencyScan(...)
+  - runAccountingClosePlaceholder(...)
+
+Behavior rules:
+- only one batch run per businessDate
+- duplicate requests for same businessDate should not create duplicate runs unsafely
+- jobs should execute in a controlled sequence
+- if one job fails, mark run as FAILED and stop remaining jobs for now
+- keep orchestration logic isolated for future retry/resume support
+
+Event requirements:
+- publish daily.close.started.v1 and daily.close.completed.v1 with canonical event envelope if shared-events exists
+- include:
+  - eventId
+  - correlationId optional
+  - runId
+  - businessDate
+  - status
+  - timestamp
+
+Observability requirements:
+- structured logging
+- correlationId support where available
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - daily close runs started
+  - daily close runs completed
+  - daily close runs failed
+  - per-job execution counts
+
+Tests required:
+- daily close run creates run and job execution records
+- duplicate run request for same businessDate is handled safely
+- successful orchestration marks run completed
+- failing job marks run failed and stops sequence
+- GET run returns run with job execution details
+- start/completed events emitted appropriately
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for retry/resume, calendars, and multi-tenant support
+
+Verification:
+- run lint
+- run typecheck
+- run tests
+- summarize results
+
+==================xxxxx=============
+
+Clean note for tomorrow
+
+When you restart tomorrow, run them in this order:
+
+Deposit / Savings Interest Engine
+Fee / Charge Engine
+Daily Close / End-of-Day Batch Orchestration
+
+That sequence is sane because:
+
+accrual engines generate daily financial activity
+fee engine centralizes pricing logic
+daily close orchestrates them together
+==============================================

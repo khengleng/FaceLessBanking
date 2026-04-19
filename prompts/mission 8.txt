@@ -1,0 +1,541 @@
+🏦 46) Trade Finance Engine (Starter Set)
+
+We won’t go full Flexcube immediately.
+
+We start with:
+👉 Letter of Credit (LC) Skeleton
+
+A. Plan prompt — Trade Finance (LC)
+
+You are implementing Trade Finance (Letter of Credit) Engine.
+
+Read:
+- AGENTS.md
+- workflow-case-management
+- accounting-service
+- treasury-operations
+
+Goal:
+Design LC (Letter of Credit) lifecycle.
+
+Business intent:
+- support import/export financing
+- guarantee payment between parties
+
+LC lifecycle:
+- APPLICATION
+- APPROVAL
+- ISSUANCE
+- UTILIZATION
+- SETTLEMENT
+- CLOSED
+
+Responsibilities:
+- create LC
+- manage lifecycle
+- integrate with workflow
+- emit LC events
+
+Produce:
+1. LC model
+2. lifecycle states
+3. API design
+4. risk considerations
+5. test plan
+
+-------------B. Build prompt — Trade Finance
+
+Implement Trade Finance LC Engine in /services/trade-finance.
+
+Endpoints:
+- POST /trade/lc
+- GET /trade/lc/:lcId
+- POST /trade/lc/:lcId/approve
+- POST /trade/lc/:lcId/issue
+- POST /trade/lc/:lcId/settle
+
+Model:
+- LetterOfCredit:
+  - lcId
+  - applicant
+  - beneficiary
+  - amount
+  - currency
+  - status
+  - createdAt
+
+States:
+- APPLICATION
+- APPROVED
+- ISSUED
+- SETTLED
+- CLOSED
+
+Rules:
+- approval requires workflow
+- issuance triggers accounting placeholder
+- settlement updates balances
+
+Emit:
+- lc.created.v1
+- lc.issued.v1
+- lc.settled.v1
+
+Tests:
+- lifecycle transitions
+- invalid transitions blocked
+
+
+
+==============================🏛️ 47) Capital Adequacy / Basel Engine
+
+Now we step into regulatory territory.
+
+A. Plan prompt — Basel
+
+You are implementing Capital Adequacy Engine (Basel).
+
+Goal:
+Design RWA and capital ratio calculations.
+
+Business intent:
+- ensure regulatory compliance
+- calculate capital adequacy ratio
+
+Metrics:
+- Risk Weighted Assets (RWA)
+- Capital Ratio (CAR)
+
+Produce:
+1. RWA model
+2. asset classification
+3. calculation strategy
+4. API design
+
+=============B. Build prompt — Basel
+
+
+Implement Basel Engine in /services/capital-engine.
+
+Endpoints:
+- GET /capital/rwa
+- GET /capital/car
+
+Model:
+- RWA:
+  - assetType
+  - exposure
+  - riskWeight
+  - rwaValue
+
+Rules:
+- loans → weighted exposure
+- simple risk weights placeholder
+
+CAR:
+- capital / total RWA
+
+Adapters:
+- loan data
+- balance data
+
+Tests:
+- RWA calculation
+- CAR calculation
+
+
+💱 48) Derivatives / Hedging Engine (Starter)
+
+We keep it simple first.
+
+
+A. Plan prompt
+
+
+You are implementing Derivatives Engine.
+
+Goal:
+Design FX forward contract support.
+
+Business intent:
+- hedge FX exposure
+
+Produce:
+1. contract model
+2. lifecycle
+3. pricing logic placeholder
+
+
+
+=============B. Build prompt
+
+Implement FX Forward Engine in /services/derivatives.
+
+Endpoints:
+- POST /derivatives/fx-forward
+- GET /derivatives/:id
+
+Model:
+- FXForward:
+  - contractId
+  - baseCurrency
+  - quoteCurrency
+  - notional
+  - forwardRate
+  - maturityDate
+  - status
+
+Rules:
+- settle at maturity
+- no complex pricing yet
+
+Tests:
+- create contract
+- settle contract
+
+
+
+============🏢 49) Corporate Cash Management Engine
+
+This is critical for corporate clients.
+
+Build prompt
+
+Implement Corporate Cash Management in /services/cash-management.
+
+Endpoints:
+- POST /cash/virtual-accounts
+- POST /cash/bulk-payments
+- GET /cash/positions
+
+Features:
+- virtual accounts
+- bulk payment processing
+- aggregation by corporate
+
+Tests:
+- bulk payment execution
+- virtual account mapping
+
+==================
+
+🕌 50) Islamic Banking Engine (Optional but powerful)
+
+Only if you want regional advantage.
+
+
+===================
+
+Implement Islamic Finance Engine in /services/islamic-banking.
+
+Model:
+- Murabaha:
+  - assetCost
+  - markup
+  - sellingPrice
+
+Rules:
+- no interest
+- profit-based calculation
+
+Tests:
+- murabaha calculation
+
+
+=================================
+
+
+51) Cross-System Reconciliation Engine
+
+
+===========
+
+You are implementing Cross-System Reconciliation Engine.
+
+Goal:
+Ensure all systems are consistent.
+
+Compare:
+- ledger vs accounting
+- payments vs balances
+- internal vs external systems
+
+Endpoints:
+- GET /reconciliation/status
+- POST /reconciliation/run
+
+Model:
+- ReconciliationResult:
+  - sourceSystem
+  - targetSystem
+  - status
+  - discrepancyAmount
+
+Rules:
+- detect mismatch
+- log discrepancies
+- trigger alerts
+
+Tests:
+- mismatch detected
+- reconciliation passes
+
+=============52) Suspense / Break Management
+
+Implement Suspense Account Engine.
+
+Goal:
+Handle unmatched transactions.
+
+Model:
+- SuspenseEntry:
+  - entryId
+  - amount
+  - reason
+  - status
+
+Endpoints:
+- GET /suspense
+- POST /suspense/resolve
+
+Rules:
+- unmatched → suspense
+- resolved → cleared
+
+Tests:
+- suspense created
+- resolved correctly
+
+
+🟥 2) REGULATORY REPORTING ENGINE (BANK REQUIRED)
+53) Regulatory Reporting Engine
+
+
+You are implementing Regulatory Reporting Engine.
+
+Goal:
+Generate regulatory reports.
+
+Reports:
+- transaction reports
+- AML reports
+- capital reports
+
+Endpoints:
+- GET /regulatory/reports
+- POST /regulatory/generate
+
+Model:
+- RegulatoryReport:
+  - reportId
+  - type
+  - generatedAt
+
+Tests:
+- report generated
+- data accuracy validated
+
+==========================
+
+54) AML Monitoring Engine
+
+Implement AML Monitoring Engine.
+
+Goal:
+Detect suspicious activity.
+
+Rules:
+- large transactions
+- unusual patterns
+
+Emit:
+- aml.alert.v1
+
+Endpoints:
+- GET /aml/alerts
+
+Tests:
+- suspicious flagged
+- normal ignored
+
+
+===================🟨 3) ACCESS CONTROL & SECURITY (NON-NEGOTIABLE)
+55) Role-Based Access Control (RBAC)
+
+
+
+Implement RBAC Engine.
+
+Goal:
+Control system access.
+
+Model:
+- Role
+- Permission
+- UserRole
+
+Endpoints:
+- POST /auth/roles
+- POST /auth/assign
+
+Rules:
+- enforce per API
+
+Tests:
+- unauthorized blocked
+
+
+================
+
+56) Audit Trail Hardening
+
+Enhance Audit Service.
+
+Goal:
+Full traceability.
+
+Requirements:
+- log all changes
+- immutable logs
+
+Tests:
+- audit recorded for all actions
+
+
+===========🟩 4) PLATFORM RELIABILITY (REAL SYSTEM)
+57) Retry & DLQ Framework
+
+
+Implement Retry + Dead Letter Queue.
+
+Goal:
+Handle failures safely.
+
+Features:
+- retry failed events
+- move to DLQ
+
+Tests:
+- retry works
+- DLQ triggered
+
+
+===============
+
+58) Idempotency Framework (GLOBAL)
+
+
+Implement Idempotency Middleware.
+
+Goal:
+Prevent duplicate execution.
+
+Features:
+- idempotency key
+- request tracking
+
+Tests:
+- duplicate blocked
+
+
+========59) Rate Limiting / Throttling
+
+Implement Rate Limiting.
+
+Goal:
+Protect system.
+
+Rules:
+- per user
+- per API
+
+Tests:
+- rate limit enforced
+
+
+
+==================
+
+🟪 5) OPERATIONS & ADMIN (REAL BANK RUNNING)
+60) System Configuration Service
+
+Implement Config Service.
+
+Goal:
+Manage runtime configs.
+
+Endpoints:
+- GET /config
+- POST /config
+
+Tests:
+- config updated dynamically
+
+
+==============
+
+61) Feature Flag Service
+
+
+Implement Feature Flags.
+
+Goal:
+Control rollout.
+
+Tests:
+- feature toggled
+
+
+==============62) Admin Ops Console APIs
+
+Implement Admin APIs.
+
+Endpoints:
+- GET /admin/system-health
+- GET /admin/services
+- GET /admin/errors
+
+Tests:
+- system visibility works
+
+
+============
+
+🧠 OPTIONAL (BUT POWERFUL)
+
+If you want to go beyond Flexcube:
+
+
+63) Data Warehouse / Analytics Pipeline
+
+
+Implement Data Pipeline.
+
+Goal:
+Export data for analytics.
+
+Targets:
+- BI tools
+- dashboards
+
+Tests:
+- data extracted correctly
+
+
+==================64) Customer 360 View
+
+Implement Customer 360.
+
+Goal:
+Unified customer view.
+
+Includes:
+- accounts
+- loans
+- transactions
+- profitability
+
+Tests:
+- full aggregation works
+
+===========

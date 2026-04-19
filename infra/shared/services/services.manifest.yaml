@@ -1,0 +1,57 @@
+version: 1
+
+naming:
+  convention: service-first
+  canonicalOwners:
+    aml-monitoring-service:
+      aliases:
+        - aml-monitoring
+    rbac-service:
+      aliases:
+        - rbac-engine
+    regulatory-reporting-service:
+      aliases:
+        - regulatory-reporting
+  parallelDomains:
+    treasury:
+      services:
+        - treasury-operations
+        - treasury-service
+      note: keep distinct until endpoint ownership is explicitly consolidated
+    reconciliation:
+      services:
+        - reconciliation-service
+        - cross-system-reconciliation
+      note: keep distinct until cross-system vs job-run responsibilities are finalized
+
+profiles:
+  local:
+    coreServices:
+      - api-gateway
+      - customer-service
+      - account-service
+      - payment-orchestration
+      - balance-service
+    preferredCanonicalServices:
+      - aml-monitoring-service
+      - rbac-service
+      - regulatory-reporting-service
+    infraDependencies:
+      - postgres
+      - redis
+      - kafka
+
+  railway:
+    initialServices:
+      - api-gateway
+      - customer-service
+      - account-service
+      - payment-orchestration
+      - balance-service
+    preferredCanonicalServices:
+      - aml-monitoring-service
+      - rbac-service
+      - regulatory-reporting-service
+
+  cloud:
+    status: placeholder

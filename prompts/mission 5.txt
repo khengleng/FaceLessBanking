@@ -1,0 +1,417 @@
+🧠 MASTER CODEX SYSTEM PROMPT
+
+You should paste this once at the start of your Codex session
+
+You are building a production-grade, event-driven, composable banking platform called "FaceLessBanking".
+
+You must follow these global rules across ALL services:
+
+ARCHITECTURE:
+- Microservices architecture
+- Node.js + TypeScript
+- Fastify for APIs
+- PostgreSQL per service (no shared DB)
+- Kafka for all inter-service communication
+- Redis for caching and high-TPS reads
+- Strict separation of concerns per service
+
+SERVICE DESIGN:
+- Each service must follow structure:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- Controllers must be thin
+- Business logic must live in application/domain layers
+- Adapters must isolate DB, Kafka, Redis, and external integrations
+
+EVENT-DRIVEN:
+- All cross-service communication must use Kafka
+- Each event must include:
+  - eventId
+  - correlationId
+  - timestamp
+- Services must be idempotent:
+  - no duplicate processing
+  - track processed event IDs where needed
+
+DATA:
+- PostgreSQL is source of truth per service
+- Redis is used only for caching / projections
+- No direct DB access across services
+
+OBSERVABILITY:
+- Structured logging required
+- correlationId must flow through services
+- OpenTelemetry hooks must be included
+- Metrics placeholders must be added
+
+
+=======================
+
+You are building a production-grade, event-driven, composable banking platform called "FaceLessBanking".
+
+You must follow these global rules across ALL services:
+
+ARCHITECTURE:
+- Microservices architecture
+- Node.js + TypeScript
+- Fastify for APIs
+- PostgreSQL per service (no shared DB)
+- Kafka for all inter-service communication
+- Redis for caching and high-TPS reads
+- Strict separation of concerns per service
+
+SERVICE DESIGN:
+- Each service must follow structure:
+  - src/controllers
+  - src/application
+  - src/domain
+  - src/adapters
+  - src/events
+  - src/tests
+- Controllers must be thin
+- Business logic must live in application/domain layers
+- Adapters must isolate DB, Kafka, Redis, and external integrations
+
+EVENT-DRIVEN:
+- All cross-service communication must use Kafka
+- Each event must include:
+  - eventId
+  - correlationId
+  - timestamp
+- Services must be idempotent:
+  - no duplicate processing
+  - track processed event IDs where needed
+
+DATA:
+- PostgreSQL is source of truth per service
+- Redis is used only for caching / projections
+- No direct DB access across services
+
+OBSERVABILITY:
+- Structured logging required
+- correlationId must flow through services
+- OpenTelemetry hooks must be included
+- Metrics placeholders must be added
+
+SAFETY:
+- Never expose sensitive data
+- Always validate inputs
+- Fail safely with standardized error responses
+
+TESTING:
+- Unit tests required for all core logic
+- Event handling must be tested
+- Idempotency must be tested
+
+DELIVERY:
+- Each implementation must include:
+  - code
+  - tests
+  - summary of changes
+  - TODOs for future improvements
+
+You will implement services step by step using the prompts provided.
+Do NOT redesign architecture unless explicitly asked.
+Keep everything consistent across services.
+
+
+=============================
+
+
+🧭 How you actually use everything now
+Step 1
+
+Paste the Master Prompt into Codex
+
+Step 2
+
+Run prompts in sequence (you already have them)
+
+Step 3
+
+After every 3–5 services:
+👉 pause
+👉 review
+👉 fix inconsistencies
+
+⚠️ Final truth (no sugarcoating)
+
+You now have:
+
+✅ Full architecture
+✅ Full service decomposition
+✅ Full prompt set
+✅ Execution strategy
+
+What’s left is:
+
+👉 discipline in execution
+
+Because this part is where most people:
+
+rush
+skip validation
+create spaghetti
+If you want next
+
+I can give you:
+
+👉 Execution tracker (Day 1 → Day 90 plan)
+👉 Service dependency order (what MUST come first)
+👉 How to run Codex like a production team (not solo dev chaos)
+
+Do this before any service prompt:
+
+Create repo skeleton
+Add root AGENTS.md
+Add README.md
+Add docs folders
+Add shared package folders
+Add service folders
+Commit this as chore: bootstrap monorepo
+
+After that, start the service prompts.
+
+Phase 1 — first-wave backbone
+
+Run these first, in exactly this order:
+
+API Gateway
+Customer Service
+Account Service
+Loan Orchestration
+Payment Orchestration
+
+Why this order:
+
+gateway gives you entry
+customer and account establish identity + ownership
+loan and payment are your first real business rails
+
+After each one:
+
+run lint
+run typecheck
+run tests
+commit
+
+Then do one cleanup pass across these 5:
+6. Normalize all first-wave services
+7. Build shared packages:
+
+shared-types
+shared-events
+shared-auth
+shared-config
+shared-telemetry
+Phase 2 — onboarding and platform controls
+
+Now build onboarding, support, and governance:
+
+eKYC Orchestration
+Notification Service
+Audit Service
+AI Orchestration
+Support / CRM Service
+Rules Engine
+Workflow / Case Management
+Fraud / Risk Engine
+
+Why this order:
+
+onboarding and notifications unlock customer flow
+audit must come in early
+rules and workflow must exist before serious lending and ops logic
+fraud can stay thin but present
+Phase 3 — high-TPS money movement spine
+
+This is the part that matters most for faceless banking throughput.
+
+Balance Service (Redis-first)
+Payment Service (Kafka-first)
+Payment Async Processor Consumer
+Balance Projection Updater
+Notification Trigger from Payment Status
+Audit Enrichment for Payment Lifecycle
+
+Why this order:
+
+balance reads need the read path first
+payment initiation needs fast acceptance first
+async processor gives payment lifecycle
+balance updater keeps reads fresh
+notification and audit hang off lifecycle events
+
+This phase is where your fast path starts looking real:
+accept fast -> process async -> project balances -> notify -> audit
+
+Phase 4 — onboarding completion rail
+
+Now make onboarding actually produce customers and cases:
+
+Sumsub Webhook Consumer
+Onboarding Workflow State Transitions
+Manual Review Queue Endpoint
+Notification Trigger from Onboarding Status
+Customer Creation After Onboarding Approval
+Account Creation After Customer Creation
+Customer Profile Enrichment
+Internal Ops Dashboard Query Endpoints
+
+Why this order:
+
+Sumsub feeds the system
+workflow interprets provider outcomes
+manual review gives ops a control point
+notifications tell customers what’s happening
+approved onboarding creates customer, then account
+profile enrichment comes after base identity exists
+dashboard is useful only once data exists
+Phase 5 — account usability and ops search
+
+Now make new accounts usable and searchable:
+
+Account Activation Flow
+Default Balance Snapshot Creation
+Search / Indexing Service for Ops Investigations
+
+Why this order:
+
+activate account
+create initial zero balance snapshot
+then index everything for ops investigation
+Phase 6 — lending skeleton end to end
+
+Now build the first real loan machine:
+
+Loan Eligibility Rules Integration
+Loan Approval Workflow
+Loan Account Creation After Approval
+Loan Disbursement Flow
+Repayment Initiation Flow
+Delinquency / Collections Skeleton
+
+Why this order:
+
+eligibility first
+then approval control
+then loan account creation
+then disbursement
+then repayments
+then “what happens when people don’t pay”
+Phase 7 — financial mechanics
+
+Now give lending and deposits actual banking mechanics:
+
+Loan Repayment Schedule Engine
+Interest Accrual Engine
+GL / Accounting Skeleton
+Deposit / Savings Interest Engine
+Fee / Charge Engine
+Daily Close / End-of-Day Batch Orchestration
+
+Why this order:
+
+schedule defines dues
+accrual calculates time-based economics
+accounting records the financial reality
+deposit interest extends that logic to liabilities
+fees centralize monetization
+daily close orchestrates everything as a bank would
+Phase 8 — operational maturity
+
+Now strengthen delivery, control, and recovery:
+
+Notification Delivery Worker
+Reconciliation Job Framework
+Maker-Checker Policy Layer
+Dispute / Case Escalation Flow
+Charge / Fee Collection Posting
+Ops Dashboard Aggregation Service
+
+Why this order:
+
+delivery worker finishes notification loop
+reconciliation catches mismatches
+maker-checker hardens governance
+disputes handle exceptions
+fee collection turns charges into money
+dashboard aggregation gives ops one control tower
+Phase 9 — only then bring in Fineract
+
+After the platform skeleton is stable, tested, and event flows are working:
+
+Fineract Adapter Service
+Customer sync to Fineract
+Account opening sync to Fineract
+Loan creation sync to Fineract
+Payment posting sync to Fineract
+Balance reconciliation against Fineract
+Accounting alignment strategy with Fineract
+
+This is later on purpose. Pulling Fineract in too early will slow you down and couple the whole platform before your own abstractions are stable.
+
+How to run each item
+
+For every numbered item above, do this exact sequence:
+
+Paste the Plan prompt in Codex Ask mode
+Review the plan
+Paste the Build prompt in Codex Code mode
+Let Codex finish
+Run lint, typecheck, tests
+Manually review diff
+Commit
+Move to the next item
+
+OpenAI’s Codex docs and product notes are very clear that tasks are independent, verifiable, and reviewable, which is why this “plan -> build -> verify -> commit” loop is the right operating model.
+
+Practical weekly grouping
+
+If you want the same order grouped into execution waves:
+
+Wave 1
+1–7
+
+Wave 2
+8–15
+
+Wave 3
+16–21
+
+Wave 4
+22–29
+
+Wave 5
+30–32
+
+Wave 6
+33–38
+
+Wave 7
+39–44
+
+Wave 8
+45–50
+
+Wave 9
+51–57
+
+The one rule that will save you
+
+Do not jump ahead because a later prompt looks exciting.
+
+For example:
+
+don’t do accounting before repayment schedules
+don’t do ops aggregation before search/indexing
+don’t do Fineract before your own services are stable
+don’t do dispute flows before workflow/case management exists
+
+That’s how spaghetti gets promoted to architecture.
+
+-----

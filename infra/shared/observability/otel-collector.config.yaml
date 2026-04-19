@@ -1,0 +1,7 @@
+# Placeholder OpenTelemetry Collector config.
+# Activate when centralized traces/metrics pipeline is introduced.
+receivers: {}
+processors: {}
+exporters: {}
+service:
+  pipelines: {}

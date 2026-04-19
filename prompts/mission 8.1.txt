@@ -1,0 +1,861 @@
+53) Regulatory Reporting Engine
+A. Plan prompt (Ask mode)
+
+
+You are implementing the Regulatory Reporting Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/api-standards.md
+- docs/contracts/events.md
+- docs/services/audit-service.md if present
+- docs/services/accounting-service.md if present
+- docs/services/capital-engine.md if present
+- docs/services/reconciliation-service.md if present
+- code under /services as relevant
+- shared packages under /packages if present
+
+Goal:
+Design the first Regulatory Reporting Engine.
+
+Business intent:
+- generate standardized regulatory reports from internal platform data
+- support auditable report generation runs
+- support report types for transaction reporting, AML reporting, and capital reporting
+- do not implement jurisdiction-specific filing logic yet
+- keep report generation deterministic and reproducible
+
+Expected responsibilities:
+- create report definitions and generation requests
+- collect source data from relevant services or read models
+- generate report records and report outputs
+- expose APIs for listing and generating reports
+- emit report generation events
+
+Please produce:
+1. proposed service structure
+2. report model design
+3. supported report types for phase 1
+4. generation workflow design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for jurisdiction-specific templates and submission workflows
+
+Do not write code yet.
+Keep the design practical and aligned to repo conventions.
+
+
+=======================B. Build prompt (Code mode)
+
+B. Build prompt (Code mode)
+
+Implement the Regulatory Reporting Engine in /services/regulatory-reporting-service.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/api-standards.md.
+4. Read docs/contracts/events.md.
+5. Review relevant accounting, capital, audit, and reconciliation service contracts if present.
+6. Keep controllers thin and put logic in application/domain layers.
+7. Use adapters for PostgreSQL and Kafka.
+8. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first Regulatory Reporting Engine.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - GET /regulatory/reports
+  - GET /regulatory/reports/:reportId
+  - POST /regulatory/generate
+- support initial report types:
+  - TRANSACTION_REPORT
+  - AML_REPORT
+  - CAPITAL_REPORT
+- persist report generation requests and outputs metadata
+- support deterministic regeneration for same input parameters
+- emit:
+  - regulatory.report.generated.v1
+  - regulatory.report.failed.v1 placeholder if generation fails
+- do not implement external regulator submission yet
+
+Domain model requirements:
+- RegulatoryReport
+  - reportId
+  - reportType
+  - businessDate or dateRangeStart/dateRangeEnd
+  - status
+  - generatedAt
+  - generatedBy placeholder
+  - outputLocation placeholder
+  - recordCount
+  - metadata
+- statuses:
+  - PENDING
+  - GENERATED
+  - FAILED
+
+Adapter requirements:
+- PostgreSQL:
+  - createRegulatoryReport(...)
+  - getRegulatoryReportById(...)
+  - listRegulatoryReports(...)
+  - updateRegulatoryReportStatus(...)
+- source data adapters:
+  - fetchTransactionsForReport(...)
+  - fetchAmlAlertsForReport(...)
+  - fetchCapitalMetricsForReport(...)
+- Kafka:
+  - publish regulatory.report.generated.v1
+  - publish regulatory.report.failed.v1
+
+Behavior rules:
+- POST /regulatory/generate validates requested report type and date range
+- generation should be deterministic for the same inputs
+- generation failures must be recorded safely
+- do not expose unsafe sensitive fields in response metadata
+- report output can be a structured JSON/blob placeholder for phase 1
+
+Observability requirements:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics placeholders for:
+  - reports generated
+  - reports failed
+  - generation latency by report type
+
+Tests required:
+- transaction report generated
+- AML report generated
+- capital report generated
+- invalid report type rejected safely
+- failed generation marks report FAILED
+- generated event emitted
+- listing endpoint works
+
+Deliverable:
+- code changes
+- tests
+- summary of files changed
+- TODOs for jurisdiction-specific formatting and submission
+
+=================================
+54) AML Monitoring Engine
+A. Plan prompt
+
+You are implementing the AML Monitoring Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- docs/contracts/events.md
+- payment-orchestration
+- customer-service
+- workflow-case-management
+- audit-service
+- shared packages
+
+Goal:
+Design the first AML Monitoring Engine.
+
+Business intent:
+- detect suspicious transaction activity using simple rules
+- generate AML alerts for review
+- keep the engine deterministic, auditable, and extensible
+- do not implement advanced machine learning or regulator submission yet
+
+Expected responsibilities:
+- consume transaction/payment events
+- evaluate AML rules
+- generate alerts
+- expose alert query APIs
+- emit aml.alert.v1
+
+Please produce:
+1. alert model design
+2. initial AML rule set
+3. event ingestion strategy
+4. API design
+5. idempotency strategy
+6. failure handling strategy
+7. test plan
+8. extension points for SAR/STR workflows and case creation
+
+=========================B. Build prompt
+
+Implement the AML Monitoring Engine in /services/aml-monitoring-service.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Read docs/contracts/events.md.
+4. Review payment-orchestration and workflow-case-management contracts if present.
+5. Keep controllers thin and put logic in application/domain layers.
+6. Use adapters for PostgreSQL and Kafka.
+7. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first AML Monitoring Engine.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - GET /aml/alerts
+  - GET /aml/alerts/:alertId
+- consume:
+  - payment.initiated.v1
+  - payment.status.updated.v1 where relevant
+- evaluate simple AML rules
+- persist AML alerts
+- emit aml.alert.v1
+- do not integrate external AML vendors yet
+
+Initial AML rules:
+- large transaction amount threshold placeholder
+- unusual repeated transactions from same account/customer placeholder
+- unusual cross-currency or cross-border placeholder if data exists
+- keep rules isolated and configurable
+
+Domain model:
+- AMLAlert
+  - alertId
+  - sourceEventId
+  - entityType
+  - entityId
+  - ruleName
+  - severity
+  - status
+  - reason
+  - createdAt
+- statuses:
+  - OPEN
+  - UNDER_REVIEW placeholder
+  - CLOSED placeholder
+
+Adapter requirements:
+- PostgreSQL:
+  - createAmlAlert(...)
+  - getAmlAlertById(...)
+  - listAmlAlerts(...)
+  - hasProcessedAmlEvent(...)
+  - markAmlEventProcessed(...)
+- Kafka:
+  - consume payment events
+  - publish aml.alert.v1
+
+Behavior rules:
+- duplicate source events must not create duplicate alerts unsafely
+- malformed events must fail safely
+- no direct account blocking yet
+- alerts are informational/control objects in phase 1
+
+Observability:
+- structured logging
+- correlationId support
+- OpenTelemetry hooks
+- metrics:
+  - AML events evaluated
+  - AML alerts created
+  - duplicate AML events skipped
+
+Tests:
+- suspicious transaction flagged
+- normal transaction ignored
+- duplicate event skipped
+- malformed event handled safely
+- alert query endpoints work
+
+===================55) Role-Based Access Control (RBAC)
+A. Plan prompt
+
+You are implementing the RBAC Engine for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- auth/keycloak docs if present
+- admin portal auth design if present
+- shared packages
+
+Goal:
+Design a platform-level RBAC engine.
+
+Business intent:
+- define roles and permissions clearly
+- support internal services and admin portal authorization
+- keep policy deterministic and auditable
+- integrate with auth/session layer through placeholders where needed
+
+Expected responsibilities:
+- manage role definitions
+- manage permission assignments
+- assign roles to users or principals
+- expose APIs for role/permission management
+
+Please produce:
+1. RBAC model design
+2. permission strategy
+3. API design
+4. enforcement strategy
+5. failure handling strategy
+6. test plan
+7. extension points for Keycloak sync and fine-grained authz
+============B. Build prompt
+
+Implement the RBAC Engine in /services/rbac-service.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review auth and admin portal docs/contracts if present.
+4. Keep controllers thin and put logic in application/domain layers.
+5. Use adapters for PostgreSQL.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Create the first platform RBAC Engine.
+
+Requirements:
+- Node.js + TypeScript
+- Fastify
+- implement:
+  - GET /health
+  - POST /auth/roles
+  - GET /auth/roles/:roleId
+  - POST /auth/permissions
+  - POST /auth/assign
+  - GET /auth/users/:userId/roles
+- support Role, Permission, UserRole assignment
+- do not implement full external IAM sync yet
+
+Domain model:
+- Role
+  - roleId
+  - roleName
+  - description
+- Permission
+  - permissionId
+  - permissionName
+  - resource
+  - action
+- UserRole
+  - userRoleId
+  - userId
+  - roleId
+  - assignedAt
+
+Behavior rules:
+- role creation must validate uniqueness
+- permission creation must validate uniqueness
+- role assignment must avoid duplicates
+- safe error responses only
+- enforcement helper placeholders may be added but no platform-wide middleware refactor required unless small
+
+Adapter requirements:
+- PostgreSQL:
+  - createRole(...)
+  - getRoleById(...)
+  - createPermission(...)
+  - assignRoleToUser(...)
+  - listRolesByUser(...)
+  - roleExists(...)
+  - permissionExists(...)
+
+Observability:
+- structured logging
+- OpenTelemetry hooks
+- metrics:
+  - roles created
+  - permissions created
+  - role assignments created
+  - duplicate assignments skipped
+
+Tests:
+- role created
+- permission created
+- role assigned
+- unauthorized/missing permission lookup patterns blocked safely in helper logic
+- duplicate assignment skipped safely
+
+=======================56) Audit Trail Hardening
+A. Plan prompt
+
+You are implementing Audit Trail Hardening for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/architecture/target-architecture.md
+- audit-service
+- ledger-service
+- accounting-service
+- shared packages
+
+Goal:
+Design hardened audit trail behavior.
+
+Business intent:
+- ensure all critical actions are traceable
+- make audit records append-oriented and tamper-resistant at the application level
+- improve completeness and retrieval
+
+Expected responsibilities:
+- strengthen audit record model
+- ensure immutable write patterns
+- expose stronger audit retrieval and verification patterns
+
+Please produce:
+1. hardened audit model
+2. immutability strategy
+3. verification/search strategy
+4. failure handling strategy
+5. test plan
+6. extension points for ledger anchoring
+
+===================B. Build prompt
+
+Enhance the Audit Service for hardened audit trail behavior.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/architecture/target-architecture.md.
+3. Review existing audit-service and related event contracts.
+4. Keep controllers thin and logic in application/domain layers.
+5. Use PostgreSQL and Kafka adapters.
+6. Add tests and run verification commands before finishing.
+
+Goal:
+Improve Audit Service for full traceability and append-only behavior.
+
+Requirements:
+- keep audit records append-oriented
+- do not allow update/delete APIs for audit records
+- strengthen AuditEvent model with:
+  - auditId
+  - sourceEventId
+  - correlationId
+  - eventType
+  - entityType
+  - entityId
+  - actor
+  - payload
+  - checksum placeholder
+  - createdAt
+- improve query endpoints for:
+  - by entity
+  - by correlationId
+  - by sourceEventId
+- add verification helper placeholder for checksum validation
+- emit audit.hardened.recorded.v1 placeholder only if appropriate
+- do not build full cryptographic notarization yet
+
+Behavior rules:
+- no mutation endpoints for audit events
+- append-only persistence
+- malformed audit payloads fail safely
+- preserve safe payload storage rules
+- support future ledger anchoring without redesign
+
+Tests:
+- audit recorded for actions
+- append-only behavior enforced
+- query by entity/correlation/source event works
+- checksum placeholder set
+- no update/delete paths exist
+
+=========================
+
+57) Retry & DLQ Framework
+A. Plan prompt
+
+You are implementing Retry and Dead Letter Queue Framework for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- docs/contracts/events.md
+- payment-orchestration
+- notification-service
+- reconciliation-service
+- shared packages
+
+Goal:
+Design a reusable retry and DLQ framework for event processing.
+
+Business intent:
+- failed event processing must be retried safely
+- repeated failures must move to DLQ
+- upstream banking flows must remain resilient
+
+Please produce:
+1. framework design
+2. retry policy model
+3. DLQ model
+4. service integration approach
+5. failure handling strategy
+6. test plan
+
+===============B. Build prompt
+
+Implement Retry + Dead Letter Queue Framework in /packages/shared-events or another clearly justified shared location.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Read docs/contracts/events.md.
+3. Review existing Kafka/event consumer patterns.
+4. Keep the framework generic and reusable.
+5. Add tests and run verification commands before finishing.
+
+Goal:
+Create reusable retry and DLQ support for event consumers.
+
+Requirements:
+- support retry metadata:
+  - retryCount
+  - maxRetries
+  - nextAttemptAt placeholder
+- support DLQ handoff after retry exhaustion
+- provide helper utilities for consumer integration
+- do not implement platform-wide broker-specific magic beyond current event stack assumptions
+
+Model:
+- DeadLetterRecord
+  - deadLetterId
+  - sourceEventId
+  - sourceTopic
+  - payload
+  - errorMessage
+  - retryCount
+  - createdAt
+
+Behavior rules:
+- transient failure -> retry
+- repeated failure -> DLQ
+- safe handling of malformed payloads
+- framework must be reusable by payment/notification/reconciliation consumers
+
+Tests:
+- retry works
+- DLQ triggered
+- malformed event sent to DLQ safely
+
+===============58) Idempotency Framework (Global)
+A. Plan prompt
+
+You are implementing the Global Idempotency Framework for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- payment-orchestration
+- customer-service
+- account-service
+- loan-orchestration
+- shared packages
+
+Goal:
+Design a reusable idempotency framework for write APIs and selected event handlers.
+
+Business intent:
+- prevent duplicate execution for critical banking actions
+- keep behavior deterministic and reusable across services
+
+Please produce:
+1. idempotency model
+2. middleware/helper design
+3. storage strategy
+4. service integration strategy
+5. failure handling strategy
+6. test plan
+
+
+===========================B. Build prompt
+
+Implement Global Idempotency Framework in /packages/shared-idempotency or another clearly justified shared location.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Review current idempotency patterns in services.
+3. Keep the framework reusable and explicit.
+4. Add tests and run verification commands before finishing.
+
+Goal:
+Create reusable idempotency support for APIs and selected event handlers.
+
+Requirements:
+- support idempotency key based request protection
+- support persistent idempotency record storage adapter interface
+- support duplicate request detection and safe replay behavior placeholder
+- support event-processing idempotency helper patterns
+- do not force every service to migrate immediately if too large; provide a clear framework and example integrations
+
+Model:
+- IdempotencyRecord
+  - idempotencyKey
+  - requestHash placeholder
+  - responseHash/result placeholder
+  - status
+  - createdAt
+
+Behavior rules:
+- same idempotency key + same request intent -> safe replay/return
+- same idempotency key + conflicting request intent -> safe rejection
+- reusable middleware/helper design
+
+Tests:
+- duplicate blocked
+- conflicting duplicate rejected
+- same request safely replayed
+
+=================59) Rate Limiting / Throttling
+A. Plan prompt
+
+You are implementing Rate Limiting / Throttling for FaceLessBanking.
+
+Read first:
+- AGENTS.md
+- api-gateway
+- auth/session docs if present
+- shared packages
+
+Goal:
+Design rate limiting for public and internal APIs.
+
+Business intent:
+- protect critical services from abuse and accidental overload
+- support per-user and per-API throttling
+
+Please produce:
+1. rate limit model
+2. enforcement design
+3. keying strategy
+4. failure handling strategy
+5. test plan
+
+=============B. Build prompt
+
+Implement Rate Limiting / Throttling in the API Gateway and/or shared gateway middleware.
+
+Before making changes:
+1. Read AGENTS.md.
+2. Review API Gateway code.
+3. Keep the implementation explicit and configurable.
+4. Add tests and run verification commands before finishing.
+
+Goal:
+Protect the platform with configurable throttling.
+
+Requirements:
+- support per user or principal rate limiting placeholder
+- support per API route configuration
+- use Redis or local adapter placeholder for counters
+- safe 429 responses with standard envelope
+- configurable limits
+- do not overcomplicate with advanced distributed algorithms for phase 1
+
+Tests:
+- rate limit enforced
+- different users isolated
+- route-specific limit applied
+- counters reset according to window placeholder
+
+
+====================60) System Configuration Service
+A. Plan prompt
+
+You are implementing the System Configuration Service for FaceLessBanking.
+
+Goal:
+Design centralized runtime configuration management.
+
+Business intent:
+- manage runtime configs safely
+- expose read and controlled write APIs
+- keep configuration auditable
+
+Produce:
+1. config model
+2. API design
+3. validation strategy
+4. test plan
+
+=====================B. Build prompt
+
+Implement System Configuration Service in /services/config-service.
+
+Requirements:
+- Fastify + TypeScript
+- endpoints:
+  - GET /config
+  - GET /config/:key
+  - POST /config
+- persist config entries
+- validate keys and values with placeholder schema strategy
+- audit-friendly create/update behavior
+- no unsafe secret values in plain responses
+- tests for dynamic config update and retrieval
+
+========================61) Feature Flag Service
+A. Plan prompt
+
+You are implementing the Feature Flag Service for FaceLessBanking.
+
+Goal:
+Design controlled feature rollout support.
+
+Business intent:
+- allow staged rollout of features
+- support safe enable/disable behavior
+
+Produce:
+1. feature flag model
+2. targeting strategy placeholder
+3. API design
+4. test plan
+
+==================B. Build prompt
+
+
+Implement Feature Flag Service in /services/feature-flag-service.
+
+Requirements:
+- Fastify + TypeScript
+- endpoints:
+  - GET /feature-flags
+  - GET /feature-flags/:flagKey
+  - POST /feature-flags
+- support:
+  - enabled/disabled
+  - environment placeholder
+  - role-based targeting placeholder
+- tests:
+  - feature toggled
+  - retrieval works
+  - invalid flag rejected safely
+
+
+  ====================62) Audit Service Hardening
+
+62) Admin Ops Console APIs
+A. Plan prompt
+
+You are implementing Admin Ops Console APIs for FaceLessBanking.
+
+Goal:
+Design internal admin operational APIs.
+
+Business intent:
+- provide system health and operational visibility
+- support admin portal integrations
+
+Produce:
+1. endpoint design
+2. data source mapping
+3. auth guard design
+4. test plan
+
+===============B. Build prompt
+
+Implement Admin Ops Console APIs in /services/admin-ops-service or a clearly justified existing admin service.
+
+Requirements:
+- Fastify + TypeScript
+- endpoints:
+  - GET /admin/system-health
+  - GET /admin/services
+  - GET /admin/errors
+- aggregate safe operational data only
+- internal auth guard placeholder required
+- do not expose secrets or unsafe internals
+- tests:
+  - system visibility works
+  - endpoints are guarded
+
+
+  =================63) Data Warehouse / Analytics Pipeline
+A. Plan prompt
+
+You are implementing the Data Warehouse / Analytics Pipeline for FaceLessBanking.
+
+Goal:
+Design a data export and analytics pipeline.
+
+Business intent:
+- export operational and financial data for BI and analytics
+- keep the first version simple and auditable
+
+Produce:
+1. pipeline design
+2. source mapping
+3. export model
+4. scheduling design
+5. test plan
+
+===============B. Build prompt
+
+Implement Data Warehouse / Analytics Pipeline in /services/data-pipeline-service.
+
+Requirements:
+- support extraction of:
+  - customers
+  - accounts
+  - loans
+  - payments
+  - profitability summaries placeholder
+- support scheduled export placeholder
+- support output sink placeholder for BI/data warehouse
+- track export jobs
+- tests:
+  - data extracted correctly
+  - export job tracked
+  - invalid export request handled safely
+
+
+  ======================64) Customer 360 View
+A. Plan prompt
+
+You are implementing the Customer 360 View for FaceLessBanking.
+
+Goal:
+Design a unified customer aggregation view.
+
+Business intent:
+- provide complete customer context across accounts, loans, transactions, onboarding, and profitability
+- support ops, support, and relationship management workflows
+
+Produce:
+1. aggregation model
+2. source mapping
+3. API design
+4. caching strategy placeholder
+5. test plan
+
+=================B. Build prompt
+
+Implement Customer 360 View in /services/customer-360-service or a clearly justified aggregation service.
+
+Requirements:
+- Fastify + TypeScript
+- endpoints:
+  - GET /customer-360/:customerId
+- aggregate:
+  - profile
+  - accounts
+  - loans
+  - recent transactions placeholder
+  - onboarding status
+  - profitability placeholder
+- do not mutate source data
+- use read-only aggregation pattern
+- tests:
+  - full aggregation works
+  - missing partial data handled safely
+  - safe response shape enforced
+
+  =================
