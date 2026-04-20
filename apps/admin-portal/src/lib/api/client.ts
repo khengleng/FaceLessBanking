@@ -39,6 +39,7 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient({
-  baseUrl: '/api',
+  baseUrl: (import.meta as any).env?.VITE_API_URL || '/api',
   timeoutMs: 8000
 });
+

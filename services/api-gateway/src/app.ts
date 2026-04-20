@@ -30,8 +30,27 @@ export function createApp(options?: AppOptions): FastifyInstance {
 
   app.get('/health', getHealth);
 
+  // Auth session management
+  app.get('/auth/session', async (request, reply) => {
+    if (!request.user) {
+      return reply.code(401).send({ error: 'unauthorized', message: 'No active session' });
+    }
+    return reply.send({
+      principalId: request.user.id,
+      displayName: request.user.email || request.user.id,
+      roles: request.user.roles,
+      expiresAt: new Date(Date.now() + 3600000).toISOString() // Mock expiry from middleware logic
+    });
+  });
+
+  app.post('/auth/logout', async (_request, reply) => {
+    // In JWT architecture, client kills the token. Gateway just acknowledges.
+    return reply.send({ status: 'logged_out' });
+  });
+
   app.all<{ Params: { route: string } }>('/:route', gatewayPlaceholderHandler);
   app.all<{ Params: { route: string } }>('/:route/*', gatewayPlaceholderHandler);
+
 
   return app;
 }

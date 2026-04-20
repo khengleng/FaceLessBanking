@@ -26,12 +26,17 @@ type SessionResponse = {
 };
 
 export class KeycloakSessionAdapter implements AuthSessionAdapter {
+  private getBaseUrl(): string {
+    return (import.meta as any).env?.VITE_API_URL || '';
+  }
+
   async getSession(): Promise<AuthSession | null> {
     try {
-      const response = await fetch('/auth/session', {
+      const response = await fetch(`${this.getBaseUrl()}/auth/session`, {
         method: 'GET',
         credentials: 'include'
       });
+
 
       if (response.status === 401) {
         return null;
@@ -58,12 +63,12 @@ export class KeycloakSessionAdapter implements AuthSessionAdapter {
     }
 
     const encoded = encodeURIComponent(returnTo);
-    window.location.assign(`/auth/login?returnTo=${encoded}`);
+    window.location.assign(`${this.getBaseUrl()}/auth/login?returnTo=${encoded}`);
   }
 
   async logout(): Promise<void> {
     try {
-      await fetch('/auth/logout', {
+      await fetch(`${this.getBaseUrl()}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       });
