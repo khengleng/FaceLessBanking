@@ -12,9 +12,11 @@ export class KafkaProducerAdapter {
   private readonly producer: EventBackboneProducer;
 
   constructor() {
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.producer = createEventBackboneProducer({
       producer: 'account-service',
-      retry: { maxAttempts: 2 },
+      brokers,
+      retry: { maxAttempts: 3 },
       dlq: { topic: 'account-service.events.dlq', enabled: true }
     });
   }
@@ -29,5 +31,9 @@ export class KafkaProducerAdapter {
 
   async publish(input: EventPublishInput): Promise<EventPublishResult> {
     return this.producer.publish(input);
+  }
+
+  async disconnect(): Promise<void> {
+    await this.producer.disconnect();
   }
 }

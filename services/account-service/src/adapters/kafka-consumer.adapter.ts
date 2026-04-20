@@ -9,16 +9,14 @@ export class KafkaConsumerAdapter {
   private accountCreatedHandler: AccountCreatedHandler | null = null;
 
   constructor() {
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.consumer = createEventBackboneConsumer({
       consumer: 'account-service-consumer',
       groupId: 'account-service-group',
+      brokers,
       retry: { maxAttempts: 3 },
       dlq: { topic: 'account-service.consumer.dlq', enabled: true }
     });
-  }
-
-  async subscribePlaceholder(topics: string[]): Promise<void> {
-    await this.consumer.subscribe(topics);
   }
 
   async subscribeCustomerCreated(handler: CustomerCreatedHandler): Promise<void> {
@@ -31,27 +29,26 @@ export class KafkaConsumerAdapter {
     await this.consumer.subscribe(['account.created.v1']);
   }
 
-  async handleCustomerCreated(event: unknown): Promise<void> {
-    if (!this.customerCreatedHandler) {
-      return;
-    }
-
-    await this.customerCreatedHandler(event);
-  }
-
-  async handleAccountCreated(event: unknown): Promise<void> {
-    if (!this.accountCreatedHandler) {
-      return;
-    }
-
-    await this.accountCreatedHandler(event);
-  }
-
-  async startPlaceholder(): Promise<void> {
-    await this.consumer.start();
-  }
-
   async start(): Promise<void> {
-    await this.consumer.start();
+    await this.consumer.start(async (event) => {
+      switch (event.type) {
+        case 'customer.created.v1':
+          if (this.customerCreatedHandler) {
+            await this.customerCreatedHandler(event);
+          }
+          break;
+        case 'account.created.v1':
+          if (this.accountCreatedHandler) {
+            await this.accountCreatedHandler(event);
+          }
+          break;
+        default:
+          console.warn(`Unhandled event type: ${event.type}`);
+      }
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    await this.consumer.disconnect();
   }
 }

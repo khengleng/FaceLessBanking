@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import fastifyPrometheus from '@fastify/prometheus';
 import pg from 'pg';
+
 import { Redis } from 'ioredis';
 
 import { buildCustomerApplication } from './application/build-customer.application.js';
@@ -17,7 +19,12 @@ type AppDepsOverride = {
 };
 
 export function createApp(depsOverride?: AppDepsOverride): FastifyInstance {
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: true });
+
+  app.register(fastifyPrometheus, {
+    endpoint: '/metrics',
+  });
+
 
   // Initialize real clients if not overridden (e.g., in production)
   const db = depsOverride?.db ?? new pg.Pool({

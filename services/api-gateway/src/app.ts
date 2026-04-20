@@ -1,4 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import fastifyPrometheus from '@fastify/prometheus';
+
 
 import { getHealth } from './controllers/health.controller.js';
 import { gatewayPlaceholderHandler } from './controllers/gateway.controller.js';
@@ -14,7 +16,11 @@ export type AppOptions = {
 };
 
 export function createApp(options?: AppOptions): FastifyInstance {
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: true });
+
+  await app.register(fastifyPrometheus, {
+    endpoint: '/metrics',
+  });
 
   app.decorateRequest('correlationId', '');
 

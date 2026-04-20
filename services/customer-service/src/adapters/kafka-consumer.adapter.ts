@@ -9,16 +9,14 @@ export class KafkaConsumerAdapter {
   private onboardingCaseApprovedHandler: OnboardingCaseApprovedHandler | null = null;
 
   constructor() {
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.consumer = createEventBackboneConsumer({
       consumer: 'customer-service-consumer',
       groupId: 'customer-service-group',
+      brokers,
       retry: { maxAttempts: 3 },
       dlq: { topic: 'customer-service.consumer.dlq', enabled: true }
     });
-  }
-
-  async subscribePlaceholder(topics: string[]): Promise<void> {
-    await this.consumer.subscribe(topics);
   }
 
   async subscribeEkycStatusUpdated(handler: EkycApprovedHandler): Promise<void> {
@@ -31,27 +29,26 @@ export class KafkaConsumerAdapter {
     await this.consumer.subscribe(['case.action.recorded.v1']);
   }
 
-  async handleEkycStatusUpdated(event: unknown): Promise<void> {
-    if (!this.ekycApprovedHandler) {
-      return;
-    }
-
-    await this.ekycApprovedHandler(event);
-  }
-
-  async handleCaseActionRecorded(event: unknown): Promise<void> {
-    if (!this.onboardingCaseApprovedHandler) {
-      return;
-    }
-
-    await this.onboardingCaseApprovedHandler(event);
-  }
-
-  async startPlaceholder(): Promise<void> {
-    await this.consumer.start();
-  }
-
   async start(): Promise<void> {
-    await this.consumer.start();
+    await this.consumer.start(async (event) => {
+      switch (event.type) {
+        case 'ekyc.status.updated.v1':
+          if (this.ekycApprovedHandler) {
+            await this.ekycApprovedHandler(event);
+          }
+          break;
+        case 'case.action.recorded.v1':
+          if (this.onboardingCaseApprovedHandler) {
+            await this.onboardingCaseApprovedHandler(event);
+          }
+          break;
+        default:
+          console.warn(`Customer service received unhandled event type: ${event.type}`);
+      }
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    await this.consumer.disconnect();
   }
 }

@@ -14,10 +14,14 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "fastify": "^5.6.1",
-    "@faceless-banking/shared-events": "workspace:*"
+    "pg": "^8.13.0",
+    "ioredis": "^5.4.1",
+    "@faceless-banking/shared-events": "workspace:*",
+    "@faceless-banking/shared-types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.4.0",
+    "@types/pg": "^8.11.10",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
     "eslint": "^8.57.1",

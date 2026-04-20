@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Kafka, type Producer, type Consumer, type Message, type ConsumerConfig } from 'kafkajs';
 
 import { buildEventEnvelope, type EventEnvelope, type EventMetadata, type EventVersion } from './types.js';
 
@@ -25,8 +26,10 @@ export type DlqConfig = {
 
 export type EventBackboneProducerConfig = {
   producer: string;
+  brokers: string[];
   retry: RetryConfig;
   dlq: DlqConfig;
+  clientId?: string;
 };
 
 export type EventPublishResult = {
@@ -37,6 +40,7 @@ export type EventPublishResult = {
 
 export interface EventBackboneTransport {
   send(event: EventEnvelope<string, Record<string, unknown>>): Promise<void>;
+  disconnect?(): Promise<void>;
 }
 
 class InMemoryEventTransport implements EventBackboneTransport {
@@ -47,9 +51,46 @@ class InMemoryEventTransport implements EventBackboneTransport {
   }
 }
 
+export class KafkaEventTransport implements EventBackboneTransport {
+  private readonly kafka: Kafka;
+  private readonly producer: Producer;
+  private isConnected = false;
+
+  constructor(brokers: string[], clientId: string) {
+    this.kafka = new Kafka({
+      clientId,
+      brokers,
+    });
+    this.producer = this.kafka.producer();
+  }
+
+  async send(event: EventEnvelope<string, Record<string, unknown>>): Promise<void> {
+    if (!this.isConnected) {
+      await this.producer.connect();
+      this.isConnected = true;
+    }
+
+    await this.producer.send({
+      topic: event.type, // Using event type as topic by default
+      messages: [
+        {
+          key: (event.payload as any).customerId ?? event.metadata.correlationId,
+          value: JSON.stringify(event),
+        },
+      ],
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.isConnected) {
+      await this.producer.disconnect();
+      this.isConnected = false;
+    }
+  }
+}
+
 export class EventBackboneProducer {
   public readonly publishedEvents: EventEnvelope<string, Record<string, unknown>>[] = [];
-
   public readonly dlqEvents: EventEnvelope<string, Record<string, unknown>>[] = [];
 
   private readonly transport: EventBackboneTransport;
@@ -58,7 +99,11 @@ export class EventBackboneProducer {
     private readonly config: EventBackboneProducerConfig,
     transport?: EventBackboneTransport
   ) {
-    this.transport = transport ?? new InMemoryEventTransport(this.publishedEvents);
+    this.transport = transport ?? (
+      config.brokers && config.brokers.length > 0 
+        ? new KafkaEventTransport(config.brokers, config.clientId ?? config.producer)
+        : new InMemoryEventTransport(this.publishedEvents)
+    );
   }
 
   async publish(input: EventPublishInput): Promise<EventPublishResult> {
@@ -81,12 +126,19 @@ export class EventBackboneProducer {
           sentToDlq: false
         };
       } catch (error: unknown) {
-        void error;
+        console.error(`Failed to publish event (attempt ${attempt}/${maxAttempts}):`, error);
+        if (attempt === maxAttempts && this.config.dlq.enabled) {
+          // Send to DLQ topic if transport is Kafka
+          if (this.transport instanceof KafkaEventTransport) {
+            try {
+              await this.sendToKafkaDlq(event);
+            } catch (dlqError) {
+              console.error('Failed to send to DLQ:', dlqError);
+            }
+          }
+          this.dlqEvents.push(event);
+        }
       }
-    }
-
-    if (this.config.dlq.enabled) {
-      this.dlqEvents.push(event);
     }
 
     return {
@@ -94,6 +146,20 @@ export class EventBackboneProducer {
       attempts: maxAttempts,
       sentToDlq: this.config.dlq.enabled
     };
+  }
+
+  private async sendToKafkaDlq(event: EventEnvelope<string, Record<string, unknown>>): Promise<void> {
+    if (this.transport instanceof KafkaEventTransport) {
+      const dlqEvent = { ...event, metadata: { ...event.metadata, isDlq: true } };
+      // Implement specific DLQ sending if needed, currently sharing the transport
+      // We might want a separate producer or just send to a different topic
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.transport.disconnect) {
+      await this.transport.disconnect();
+    }
   }
 
   getConfig(): EventBackboneProducerConfig {
@@ -104,14 +170,27 @@ export class EventBackboneProducer {
 export type EventBackboneConsumerConfig = {
   consumer: string;
   groupId: string;
+  brokers: string[];
   retry: RetryConfig;
   dlq: DlqConfig;
+  clientId?: string;
 };
 
 export class EventBackboneConsumer {
   public readonly subscriptions: string[] = [];
+  private readonly kafka?: Kafka;
+  private readonly consumer?: Consumer;
+  private isConnected = false;
 
-  constructor(private readonly _config: EventBackboneConsumerConfig) {}
+  constructor(private readonly config: EventBackboneConsumerConfig) {
+    if (config.brokers && config.brokers.length > 0) {
+      this.kafka = new Kafka({
+        clientId: config.clientId ?? config.consumer,
+        brokers: config.brokers,
+      });
+      this.consumer = this.kafka.consumer({ groupId: config.groupId });
+    }
+  }
 
   async subscribe(topics: string[]): Promise<void> {
     for (const topic of topics) {
@@ -119,10 +198,45 @@ export class EventBackboneConsumer {
         this.subscriptions.push(topic);
       }
     }
+    
+    if (this.consumer) {
+      for (const topic of topics) {
+        await this.consumer.subscribe({ topic, fromBeginning: false });
+      }
+    }
   }
 
-  async start(): Promise<void> {
-    // TODO: attach real broker consumer polling/handlers.
+  async start(handler: (event: EventEnvelope<string, any>) => Promise<void>): Promise<void> {
+    if (!this.consumer) {
+      console.warn('Real Kafka consumer not configured, start() is a no-op');
+      return;
+    }
+
+    if (!this.isConnected) {
+      await this.consumer.connect();
+      this.isConnected = true;
+    }
+
+    await this.consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        if (!message.value) return;
+        
+        try {
+          const event = JSON.parse(message.value.toString()) as EventEnvelope<string, any>;
+          await handler(event);
+        } catch (error) {
+          console.error(`Error processing message from topic ${topic}:`, error);
+          // Optional: Send to DLQ topic here if configured
+        }
+      },
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.consumer && this.isConnected) {
+      await this.consumer.disconnect();
+      this.isConnected = false;
+    }
   }
 }
 

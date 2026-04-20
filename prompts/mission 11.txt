@@ -1,0 +1,317 @@
+🧱 MASTER PROMPT (Run this first)
+
+Paste this once to set context:
+
+
+You are working on the FaceLessBanking monorepo.
+
+Current state:
+- Microservices architecture with ~50 services
+- Each service follows:
+  src/controllers
+  src/application
+  src/domain
+  src/adapters
+  src/events
+- Adapters named postgres-xxx.adapter.ts and kafka-xxx.adapter.ts currently use in-memory Maps/Sets
+- Migrations exist but many are placeholders
+- API Gateway has placeholder auth
+- Event backbone is partially implemented but not connected to real Kafka
+- Observability is scaffolded but not wired
+
+Goal:
+Convert the platform from scaffold/mocked infrastructure into real infrastructure-backed services.
+
+Rules:
+- Do NOT change domain logic or APIs unless necessary
+- Preserve architecture layering
+- Replace adapters, do not bypass them
+- Follow existing patterns from best-implemented services
+- Keep changes production-ready
+- Avoid introducing breaking changes across services
+
+Work step-by-step:
+- Only focus on the task I give next
+- After each task, provide:
+  1. changes made
+  2. files updated
+  3. verification steps
+
+  =========================🔴 STEP 1 — Replace Postgres Adapters (CRITICAL)
+Prompt
+
+Task: Replace in-memory Postgres adapters with real PostgreSQL implementation.
+
+Scope:
+- All files matching postgres-*.adapter.ts across services
+
+Current behavior:
+- Using Map/Set in-memory storage
+- No real DB connection
+
+Target:
+- Use node-postgres (pg) or equivalent
+- Use DATABASE_URL from env
+- Implement:
+  - connection pool
+  - query execution
+  - proper error handling
+
+Requirements:
+- Keep adapter interface unchanged
+- Replace in-memory logic with SQL queries
+- Use existing migrations where available
+- If migration is placeholder, infer minimal working schema from adapter usage
+- Ensure async/await consistency
+- Do not embed SQL in controllers
+
+Deliver:
+- updated adapter implementation
+- SQL query mapping per method
+- any missing migration updates
+
+Verification:
+- service can:
+  - insert record
+  - read record
+  - update record
+- no in-memory Map remains
+
+🟠 STEP 2 — Replace Kafka Event Backbone
+Prompt
+
+Task: Replace in-memory event backbone with real Kafka integration.
+
+Scope:
+- packages/shared-events
+- all kafka-*.adapter.ts files
+
+Current:
+- Local in-memory queue
+- fake DLQ
+
+Target:
+- Use KafkaJS or equivalent
+- Implement:
+  - producer
+  - consumer
+  - topic-based routing
+  - retry logic
+  - DLQ topic
+
+Requirements:
+- Keep event contract unchanged
+- Preserve publish/subscribe API
+- Add:
+  - connection config from env
+  - topic naming strategy
+  - consumer group handling
+
+Deliver:
+- real Kafka adapter
+- updated producer/consumer logic
+- DLQ topic handling
+
+Verification:
+- event published → consumed by another service
+- retry works
+- DLQ receives failed messages
+
+
+=====================🟡 STEP 3 — Replace Redis / Cache Layer
+Prompt
+
+Task: Replace any in-memory caching with real Redis.
+
+Scope:
+- services using cache/session/rate limiting/idempotency
+
+Target:
+- Use ioredis or equivalent
+
+Requirements:
+- Replace Map-based storage
+- Support:
+  - key TTL
+  - atomic operations where needed
+  - idempotency key storage
+  - rate limiting counters
+
+Keep:
+- existing service logic intact
+
+Deliver:
+- Redis adapter implementation
+- env config (REDIS_URL)
+
+Verification:
+- keys persist
+- TTL expires correctly
+- rate limit works across instances
+
+
+====================🔐 STEP 4 — Implement Real Auth (Keycloak / JWT)
+Prompt
+
+Task: Replace placeholder auth in API Gateway with real JWT validation.
+
+Current:
+- Only checks "Bearer " prefix
+
+Target:
+- Validate JWT using public key (JWKS)
+- Extract:
+  - userId
+  - roles
+  - permissions/scopes
+
+Requirements:
+- Middleware-based
+- Reject invalid tokens
+- Enforce role-based access where required
+- Do not hardcode secrets
+
+Optional:
+- Add Keycloak integration support
+
+Deliver:
+- auth middleware
+- role extraction logic
+- permission guard helper
+
+Verification:
+- valid JWT → allowed
+- invalid JWT → rejected
+- role-restricted endpoint enforced
+
+================💳 STEP 5 — Wire Payment Hooks (REAL FLOW)
+Prompt
+
+Task: Replace noopHooks in payment-orchestration with real integrations.
+
+Current:
+- fraud check skipped
+- ledger posting skipped
+- core banking skipped
+
+Target:
+- Call:
+  - fraud-risk-engine
+  - accounting/ledger service
+  - core banking adapter (placeholder if needed)
+
+Requirements:
+- Keep orchestration flow intact
+- Make calls async and resilient
+- Use retry where needed
+- Do not block entire flow on non-critical failures
+
+Deliver:
+- real hook implementations
+- integration calls
+- fallback handling
+
+Verification:
+- payment triggers:
+  - fraud check
+  - ledger entry
+  - downstream event
+
+  =================🪪 STEP 6 — Sumsub eKYC Integration
+Prompt
+
+Task: Implement real Sumsub webhook verification.
+
+Current:
+- placeholder verifier
+
+Target:
+- validate webhook signature
+- parse payload
+- map to onboarding entity
+
+Requirements:
+- use secret key validation
+- reject invalid webhook
+- idempotent processing
+
+Deliver:
+- webhook verifier
+- onboarding update logic
+
+Verification:
+- valid webhook updates onboarding
+- invalid webhook rejected
+
+=================📊 STEP 7 — Observability (Make it real)
+Prompt
+
+Task: Wire observability to real backends.
+
+Current:
+- OpenTelemetry scaffold
+- Prometheus placeholders
+
+Target:
+- Export traces
+- expose /metrics endpoint
+- structured logging
+
+Requirements:
+- no-op removed
+- integrate:
+  - Prometheus metrics
+  - OpenTelemetry exporter
+- add:
+  - request tracing
+  - service-level metrics
+
+Deliver:
+- metrics endpoint
+- tracing setup
+- logging improvements
+
+Verification:
+- metrics visible
+- traces exported
+
+=======================🧱 STEP 8 — Finalize Migrations
+Prompt
+
+Task: Replace placeholder migrations with real schema.
+
+Scope:
+- all migrations/0001_baseline.sql
+
+Requirements:
+- infer schema from:
+  - adapter queries
+  - domain models
+- ensure:
+  - primary keys
+  - indexes
+  - constraints
+- avoid breaking changes
+
+Deliver:
+- complete SQL schema per service
+
+Verification:
+- migrations run cleanly
+- services operate with real DB
+
+===============🚫 IMPORTANT RULES (tell Gemini)
+
+Add this at the end:
+
+Do NOT:
+- rewrite entire services
+- change API contracts
+- remove existing structure
+- introduce unrelated frameworks
+
+Focus only on replacing infrastructure and integrations.
+
+Work incrementally and safely.
+
+=======

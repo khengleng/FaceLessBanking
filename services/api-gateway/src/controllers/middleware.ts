@@ -1,9 +1,23 @@
 import { randomUUID } from 'node:crypto';
-
+import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-rsa';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { buildErrorResponse, toCorrelationId } from '@faceless-banking/shared-types';
 
 const CORRELATION_ID_HEADER = 'x-correlation-id';
+
+// Extended request type to hold user information
+declare module 'fastify' {
+  interface FastifyRequest {
+    user?: {
+      id: string;
+      email?: string;
+      roles: string[];
+      permissions: string[];
+    };
+    correlationId: string;
+  }
+}
 
 export async function correlationIdMiddleware(
   request: FastifyRequest,
@@ -12,8 +26,25 @@ export async function correlationIdMiddleware(
   const headerValue = request.headers[CORRELATION_ID_HEADER];
   const correlationId = typeof headerValue === 'string' && headerValue.length > 0 ? headerValue : randomUUID();
 
-  request.correlationId = correlationId;
+  (request as any).correlationId = correlationId;
   reply.header(CORRELATION_ID_HEADER, correlationId);
+}
+
+const client = jwksClient({
+  jwksUri: process.env.JWKS_URI || 'http://localhost:8080/realms/faceless-banking/protocol/openid-connect/certs',
+  cache: true,
+  rateLimit: true,
+});
+
+function getKey(header: any, callback: any) {
+  client.getSigningKey(header.kid, (err, key) => {
+    if (err) {
+      callback(err);
+      return;
+    }
+    const signingKey = key?.getPublicKey();
+    callback(null, signingKey);
+  });
 }
 
 export async function authMiddleware(
@@ -27,14 +58,82 @@ export async function authMiddleware(
   const authHeader = request.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    reply.code(401).send({
-      error: 'unauthorized',
-      details: ['Missing bearer token. TODO: validate Keycloak token.']
-    });
+    reply.code(401).send(buildErrorResponse({
+      correlationId: toCorrelationId(request.correlationId),
+      error: {
+        code: 'unauthorized',
+        message: 'Missing or invalid authorization header',
+        details: ['Bearer token is required']
+      }
+    }));
     return;
   }
 
-  // TODO: Replace placeholder check with full Keycloak JWT validation.
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = await new Promise<any>((resolve, reject) => {
+      jwt.verify(token, getKey, {
+        audience: process.env.JWT_AUDIENCE,
+        issuer: process.env.JWT_ISSUER
+      }, (err, decoded) => {
+        if (err) reject(err);
+        else resolve(decoded);
+      });
+    });
+
+    request.user = {
+      id: decoded.sub || decoded.uid,
+      email: decoded.email,
+      roles: decoded.realm_access?.roles || decoded.roles || [],
+      permissions: decoded.resource_access?.[process.env.JWT_AUDIENCE ?? 'api-gateway']?.roles || decoded.scopes || []
+    };
+
+    // Also populate x-user-id header for downstream services if not already set
+    if (!request.headers['x-user-id']) {
+      request.headers['x-user-id'] = request.user.id;
+    }
+
+  } catch (error) {
+    reply.code(401).send(buildErrorResponse({
+      correlationId: toCorrelationId(request.correlationId),
+      error: {
+        code: 'unauthorized',
+        message: 'Invalid token',
+        details: [(error as Error).message]
+      }
+    }));
+  }
+}
+
+export function permissionGuard(requiredPermission: string) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.user || !request.user.permissions.includes(requiredPermission)) {
+      reply.code(403).send(buildErrorResponse({
+        correlationId: toCorrelationId(request.correlationId),
+        error: {
+          code: 'forbidden',
+          message: 'Insufficient permissions',
+          details: [`Required: ${requiredPermission}`]
+        }
+      }));
+    }
+  };
+}
+
+export function roleGuard(requiredRole: string) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.user || !request.user.roles.includes(requiredRole)) {
+      reply.code(403).send(buildErrorResponse({
+        correlationId: toCorrelationId(request.correlationId),
+        error: {
+          code: 'forbidden',
+          message: 'Insufficient roles',
+          details: [`Required: ${requiredRole}`]
+        }
+      }));
+    }
+  };
 }
 
 export type RateLimitPolicy = {
@@ -63,6 +162,50 @@ type RateLimitRecord = {
   count: number;
   resetAtMs: number;
 };
+
+import { Redis } from 'ioredis';
+
+export class RedisRateLimitCounterAdapter implements RateLimitCounterAdapter {
+  private readonly redis: Redis;
+
+  constructor(redisOrUrl?: Redis | string) {
+    if (typeof redisOrUrl === 'string') {
+      this.redis = new Redis(redisOrUrl);
+    } else {
+      this.redis = redisOrUrl ?? new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    }
+  }
+
+  async incrementAndGet(input: {
+    key: string;
+    windowSeconds: number;
+    now: Date;
+  }): Promise<RateLimitCounterResult> {
+    const pipeline = this.redis.pipeline();
+    pipeline.incr(input.key);
+    pipeline.ttl(input.key);
+    const results = await pipeline.exec();
+
+    if (!results) {
+      throw new Error('Redis pipeline failed');
+    }
+
+    const count = results[0][1] as number;
+    let ttl = results[1][1] as number;
+
+    if (ttl === -1) {
+      await this.redis.expire(input.key, input.windowSeconds);
+      ttl = input.windowSeconds;
+    }
+
+    const resetAt = new Date(input.now.getTime() + ttl * 1000).toISOString();
+
+    return {
+      count,
+      resetAt
+    };
+  }
+}
 
 export class InMemoryRateLimitCounterAdapter implements RateLimitCounterAdapter {
   private readonly counters = new Map<string, RateLimitRecord>();
@@ -126,7 +269,9 @@ export type RateLimitMiddlewareOptions = {
 };
 
 export function createRateLimitMiddleware(options?: RateLimitMiddlewareOptions) {
-  const adapter = options?.adapter ?? new InMemoryRateLimitCounterAdapter();
+  const adapter = options?.adapter ?? (process.env.REDIS_URL 
+    ? new RedisRateLimitCounterAdapter(process.env.REDIS_URL) 
+    : new InMemoryRateLimitCounterAdapter());
   const policies = options?.policies ?? DEFAULT_RATE_LIMIT_POLICIES;
   const now = options?.now ?? (() => new Date());
 
@@ -207,6 +352,11 @@ function resolvePrincipalKey(
 ): string {
   if (mode === 'ip') {
     return `ip:${request.ip}`;
+  }
+
+  const userId = request.user?.id;
+  if (userId) {
+    return `user:${userId}`;
   }
 
   const principalFromHeader = request.headers['x-user-id'];

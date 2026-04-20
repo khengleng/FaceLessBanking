@@ -1,7 +1,6 @@
 import {
   createEventBackboneConsumer,
   type EventBackboneConsumer,
-  type EventEnvelope
 } from '@faceless-banking/shared-events';
 
 type PaymentLifecycleHandler = (event: unknown) => Promise<void>;
@@ -11,9 +10,11 @@ export class KafkaConsumerAdapter {
   private paymentLifecycleHandler: PaymentLifecycleHandler | null = null;
 
   constructor() {
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.consumer = createEventBackboneConsumer({
       consumer: 'audit-service-consumer',
       groupId: 'audit-service-group',
+      brokers,
       retry: { maxAttempts: 3 },
       dlq: { topic: 'audit-service.consumer.dlq', enabled: true }
     });
@@ -24,17 +25,19 @@ export class KafkaConsumerAdapter {
     await this.consumer.subscribe(['payment.initiated.v1', 'payment.status.updated.v1']);
   }
 
-  async handlePaymentLifecycle(
-    event: EventEnvelope<string, Record<string, unknown>> | unknown
-  ): Promise<void> {
-    if (!this.paymentLifecycleHandler) {
-      return;
-    }
-
-    await this.paymentLifecycleHandler(event);
+  async start(): Promise<void> {
+    await this.consumer.start(async (event) => {
+      if (['payment.initiated.v1', 'payment.status.updated.v1'].includes(event.type)) {
+        if (this.paymentLifecycleHandler) {
+          await this.paymentLifecycleHandler(event);
+        }
+      } else {
+        console.warn(`Audit service received unhandled event type: ${event.type}`);
+      }
+    });
   }
 
-  async start(): Promise<void> {
-    await this.consumer.start();
+  async disconnect(): Promise<void> {
+    await this.consumer.disconnect();
   }
 }

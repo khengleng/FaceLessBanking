@@ -29,14 +29,15 @@ export type PaymentStatusUpdatedEvent = EventEnvelope<'payment.status.updated.v1
 
 export class KafkaProducerAdapter {
   private readonly producer: EventBackboneProducer;
-
   public readonly failPublish: boolean;
 
   constructor(config?: { failPublish?: boolean }) {
     this.failPublish = config?.failPublish ?? false;
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.producer = createEventBackboneProducer({
       producer: 'payment-orchestration',
-      retry: { maxAttempts: 2 },
+      brokers,
+      retry: { maxAttempts: 3 },
       dlq: { topic: 'payment-orchestration.events.dlq', enabled: true }
     });
   }
@@ -75,5 +76,9 @@ export class KafkaProducerAdapter {
     });
 
     return { published: result.published };
+  }
+
+  async disconnect(): Promise<void> {
+    await this.producer.disconnect();
   }
 }

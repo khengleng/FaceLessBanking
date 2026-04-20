@@ -4,26 +4,12 @@ import { PaymentProcessorConsumer } from '../events/payment-processor.consumer.j
 import { AuditEventsService } from '../events/audit.events.js';
 import { PaymentMetrics } from '../events/metrics.js';
 import { PaymentEventsPublisher } from '../events/payment.events.js';
+import { IntegratedHooksAdapter } from '../adapters/integrated-hooks.adapter.js';
 
 import {
   PaymentProcessorApplication,
   type PaymentProcessorHooks
 } from './payment-processor.application.js';
-
-const noopHooks: PaymentProcessorHooks = {
-  async runFraudChecks(): Promise<void> {
-    // TODO: integrate fraud-risk-engine checks.
-  },
-  async postToCoreBanking(): Promise<void> {
-    // TODO: integrate Fineract posting.
-  },
-  async requestLedgerAnchor(): Promise<void> {
-    // TODO: integrate ledger anchor workflow.
-  },
-  async triggerNotification(): Promise<void> {
-    // TODO: integrate notification publishing.
-  }
-};
 
 export function buildPaymentProcessor(deps: {
   postgresAdapter: PostgresPaymentAdapter;
@@ -43,18 +29,23 @@ export function buildPaymentProcessor(deps: {
 } {
   const logger = deps.logger ?? {
     info: (payload: Record<string, unknown>, message: string): void => {
-      void payload;
-      void message;
+      console.info(JSON.stringify({ level: 'info', ...payload, message }));
     },
     warn: (payload: Record<string, unknown>, message: string): void => {
-      void payload;
-      void message;
+      console.warn(JSON.stringify({ level: 'warn', ...payload, message }));
     },
     error: (payload: Record<string, unknown>, message: string): void => {
-      void payload;
-      void message;
+      console.error(JSON.stringify({ level: 'error', ...payload, message }));
     }
   };
+
+  const hooks = deps.hooks ?? new IntegratedHooksAdapter({
+    fraudServiceUrl: process.env.FRAUD_SERVICE_URL || 'http://fraud-risk-engine:3000',
+    accountingServiceUrl: process.env.ACCOUNTING_SERVICE_URL || 'http://accounting-service:3000',
+    ledgerServiceUrl: process.env.LEDGER_SERVICE_URL || 'http://ledger-service:3000',
+    notificationServiceUrl: process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3000',
+  }, logger);
+
 
   const processor = new PaymentProcessorApplication(
     deps.postgresAdapter,
@@ -62,7 +53,7 @@ export function buildPaymentProcessor(deps: {
     deps.paymentEvents,
     deps.metrics,
     logger,
-    deps.hooks ?? noopHooks
+    hooks
   );
 
   const consumer = new PaymentProcessorConsumer(deps.kafkaConsumer, processor);

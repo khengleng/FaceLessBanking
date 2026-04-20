@@ -1,7 +1,6 @@
 import {
   createEventBackboneConsumer,
   type EventBackboneConsumer,
-  type EventEnvelope
 } from '@faceless-banking/shared-events';
 
 type PaymentInitiatedHandler = (event: unknown) => Promise<void>;
@@ -11,9 +10,11 @@ export class KafkaConsumerAdapter {
   private paymentInitiatedHandler: PaymentInitiatedHandler | null = null;
 
   constructor() {
+    const brokers = process.env.KAFKA_BOOTSTRAP_SERVERS?.split(',') ?? [];
     this.consumer = createEventBackboneConsumer({
       consumer: 'payment-orchestration-consumer',
       groupId: 'payment-orchestration-group',
+      brokers,
       retry: { maxAttempts: 3 },
       dlq: { topic: 'payment-orchestration.consumer.dlq', enabled: true }
     });
@@ -24,17 +25,19 @@ export class KafkaConsumerAdapter {
     await this.consumer.subscribe(['payment.initiated.v1']);
   }
 
-  async handlePaymentInitiated(
-    event: EventEnvelope<string, Record<string, unknown>> | unknown
-  ): Promise<void> {
-    if (!this.paymentInitiatedHandler) {
-      return;
-    }
-
-    await this.paymentInitiatedHandler(event);
+  async start(): Promise<void> {
+    await this.consumer.start(async (event) => {
+      if (event.type === 'payment.initiated.v1') {
+        if (this.paymentInitiatedHandler) {
+          await this.paymentInitiatedHandler(event);
+        }
+      } else {
+        console.warn(`Payment orchestration received unhandled event type: ${event.type}`);
+      }
+    });
   }
 
-  async start(): Promise<void> {
-    await this.consumer.start();
+  async disconnect(): Promise<void> {
+    await this.consumer.disconnect();
   }
 }

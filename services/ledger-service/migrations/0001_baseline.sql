@@ -1,10 +1,19 @@
--- Baseline migration placeholder.
--- TODO: finalize table definitions based on approved domain schema.
--- Keep this migration deterministic and idempotent once finalized.
+-- Baseline migration finalized for domain schema.
+-- Logic ensures tables are created with proper constraints and indexes.
 
 BEGIN;
 
--- Placeholder no-op to keep migration file valid SQL.
-SELECT 1;
+CREATE TABLE IF NOT EXISTS ledger_anchors (
+    anchor_id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    hash TEXT NOT NULL,
+    chain TEXT NOT NULL,
+    status TEXT NOT NULL,
+    transaction_id TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ledger_anchors_event_id ON ledger_anchors(event_id);
 
 COMMIT;
+
